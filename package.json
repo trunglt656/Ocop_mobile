@@ -1,0 +1,19 @@
+{
+  "name": "ocop-admin-system",
+  "version": "1.0.0",
+  "description": "OCOP Admin Panel System",
+  "main": "admin-api.js",
+  "scripts": {
+    "start:admin": "node admin-api.js",
+    "test:admin": "node test-admin-api.js",
+    "start:frontend": "cd ocop_admin && npx expo start --web",
+    "setup": "node create-admin.js",
+    "dev": "concurrently \"npm run start:admin\" \"npm run start:frontend\""
+  },
+  "keywords": ["ocp", "admin", "api", "react-native", "expo"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  }
+}
