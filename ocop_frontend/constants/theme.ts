@@ -5,26 +5,58 @@
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
+const tintColorLight = '#007AFF'; // A slightly more vibrant blue
 const tintColorDark = '#fff';
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
+    text: '#000', // Pure black for highest contrast
+    background: '#F2F2F7', // A slightly off-white background
     tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
+    icon: '#2C2C2E', // A darker gray for icons
+    tabIconDefault: '#8E8E93', // A standard gray for inactive tabs
     tabIconSelected: tintColorLight,
+    card: '#fff', // White cards for content
+    border: '#E5E5EA', // A light gray for borders
+    primary: '#007AFF',
+    secondary: '#FF3B30', // A vibrant red for destructive actions
+    muted: '#8E8E93',
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
+    text: '#000', // Pure black for highest contrast
+    background: '#000', // Pure black background
     tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
+    icon: '#E5E5EA', // A light gray for icons
+    tabIconDefault: '#8E8E93', // A standard gray for inactive tabs
     tabIconSelected: tintColorDark,
+    card: '#1C1C1E', // A dark gray for cards
+    border: '#38383A', // A medium gray for borders
+    primary: '#007AFF',
+    secondary: '#FF3B30',
+    muted: '#8E8E93',
   },
+};
+
+export const Sizes = {
+  // Font sizes
+  h1: 32,
+  h2: 24,
+  h3: 20,
+  h4: 18,
+  body: 16,
+  small: 14,
+  caption: 12,
+
+  // Icon sizes
+  icon: 24,
+};
+
+export const Spacing = {
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
 };
 
 export const Fonts = Platform.select({

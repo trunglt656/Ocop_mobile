@@ -1,404 +1,293 @@
-import React, { useState } from 'react';
-import {
-  StyleSheet,
-  TouchableOpacity,
-  View,
-  ScrollView,
-  Alert,
-  TextInput,
-} from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { StyleSheet, TouchableOpacity, View, ScrollView, Alert, ActivityIndicator, Modal, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useLocalSearchParams } from 'expo-router';
-
+import { useIsFocused } from '@react-navigation/native';
+import { useAuth } from '@/contexts/AuthContext';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { cartService, Cart } from '@/services/cartService';
+import { addressService, Address } from '@/services/addressService';
+import { orderService } from '@/services/orderService';
+import { Colors, Spacing, Sizes } from '@/constants/theme';
 
-// Static imports for images (reuse from cart)
-const productImages = {
-  'buoi.jpg': require('@/assets/images/buoi.jpg'),
-  'cacao.jpg': require('@/assets/images/cacao.jpg'),
-  'dau_phong.jpg': require('@/assets/images/dau_phong.jpg'),
-  'keo_sua.jpg': require('@/assets/images/keo_sua.jpg'),
-};
-
-interface CartItem {
-  id: string;
-  name: string;
-  price: number;
-  image: string;
-  quantity: number;
-  unit: string;
-}
-
-export default function CheckoutScreen() {
+const CheckoutScreenContent = () => {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const [customerInfo, setCustomerInfo] = useState({
-    name: '',
-    phone: '',
-    address: '',
-    note: '',
-  });
+  const isFocused = useIsFocused();
+  const [cart, setCart] = useState<Cart | null>(null);
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [addressModalVisible, setAddressModalVisible] = useState(false);
 
-  // Mock cart items - in a real app, this would come from context or props
-  const [cartItems] = useState<CartItem[]>([
-    {
-      id: '1',
-      name: 'Bưởi da xanh Đồng Nai',
-      price: 45000,
-      image: 'buoi.jpg',
-      quantity: 2,
-      unit: 'kg',
-    },
-  ]);
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [cartResponse, addressResponse] = await Promise.all([
+        cartService.getCart(),
+        addressService.getAddresses(),
+      ]);
 
-  const getTotalPrice = () => {
-    return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-  };
+      if (cartResponse.data) setCart(cartResponse.data);
+      if (addressResponse.data) {
+        setAddresses(addressResponse.data);
+        const defaultAddress = addressResponse.data.find(a => a.isDefault) || addressResponse.data[0];
+        setSelectedAddress(defaultAddress || null);
+      }
 
-  const deliveryFee = 15000;
-  const totalPrice = getTotalPrice() + deliveryFee;
+      if (!cartResponse.data || cartResponse.data.items.length === 0) {
+        Alert.alert('Giỏ hàng trống', 'Bạn sẽ được chuyển về trang chủ.', [{ text: 'OK', onPress: () => router.replace('/(tabs)/') }]);
+      }
 
-  const handlePlaceOrder = () => {
-    if (!customerInfo.name || !customerInfo.phone || !customerInfo.address) {
-      Alert.alert('Thông báo', 'Vui lòng điền đầy đủ thông tin giao hàng!');
+    } catch (err) {
+      setError('Không thể tải thông tin thanh toán.');
+    } finally {
+      setLoading(false);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    if (isFocused) {
+      fetchData();
+    }
+  }, [isFocused, fetchData]);
+
+  const handlePlaceOrder = async () => {
+    if (!selectedAddress) {
+      Alert.alert('Lỗi', 'Vui lòng chọn địa chỉ giao hàng.');
       return;
     }
-
-    // Here you would typically send the order to your backend
-    Alert.alert(
-      'Đặt hàng thành công',
-      'Cảm ơn bạn đã đặt hàng! Chúng tôi sẽ liên hệ với bạn sớm nhất.',
-      [
-        {
-          text: 'OK',
-          onPress: () => router.push('/'),
+    setIsPlacingOrder(true);
+    try {
+      const orderData = {
+        shippingAddress: {
+            name: selectedAddress.name,
+            phone: selectedAddress.phone,
+            address: selectedAddress.address,
+            ward: selectedAddress.ward,
+            district: selectedAddress.district,
+            province: selectedAddress.province,
         },
-      ]
-    );
+        paymentMethod: 'cod' as const,
+        notes: 'Giao hàng cẩn thận',
+      };
+      await orderService.createOrder(orderData);
+      Alert.alert('Thành công', 'Đơn hàng của bạn đã được đặt thành công!', [
+        { text: 'OK', onPress: () => router.replace('/orders') },
+      ]);
+    } catch (err) {
+      Alert.alert('Lỗi', 'Không thể đặt hàng. Vui lòng thử lại.');
+    } finally {
+      setIsPlacingOrder(false);
+    }
   };
 
-  const renderCartItem = ({ item }: { item: CartItem }) => (
-    <View style={styles.cartItem}>
-      <View style={styles.itemImageContainer}>
-        <IconSymbol name="photo" size={40} color="#ccc" />
-      </View>
-      <View style={styles.itemInfo}>
-        <ThemedText style={styles.itemName} numberOfLines={2}>
-          {item.name}
-        </ThemedText>
-        <ThemedText style={styles.itemPrice}>
-          {item.price.toLocaleString('vi-VN')}₫ / {item.unit}
-        </ThemedText>
-        <ThemedText style={styles.itemQuantity}>
-          Số lượng: {item.quantity}
-        </ThemedText>
-      </View>
-      <ThemedText style={styles.itemTotal}>
-        {(item.price * item.quantity).toLocaleString('vi-VN')}₫
-      </ThemedText>
-    </View>
-  );
+  if (loading) {
+    return <ThemedView style={styles.centerContainer}><ActivityIndicator size="large" /><ThemedText>Đang tải...</ThemedText></ThemedView>;
+  }
+
+  if (error) {
+    return <ThemedView style={styles.centerContainer}><ThemedText style={styles.errorText}>{error}</ThemedText></ThemedView>;
+  }
+
+  const shippingFee = 15000;
 
   return (
     <ThemedView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}>
-            <IconSymbol name="chevron.left" size={24} color="#007AFF" />
-          </TouchableOpacity>
-          <ThemedText style={styles.headerTitle}>Thanh toán</ThemedText>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}><IconSymbol name="chevron.left" size={Sizes.icon} /></TouchableOpacity>
+            <ThemedText style={styles.headerTitle}>Thanh Toán</ThemedText>
         </View>
 
-        {/* Delivery Information */}
+        {/* Address Section */}
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Thông tin giao hàng</ThemedText>
-          <View style={styles.inputContainer}>
-            <ThemedText style={styles.label}>Họ tên *</ThemedText>
-            <TextInput
-              style={styles.input}
-              placeholder="Nhập họ tên của bạn"
-              value={customerInfo.name}
-              onChangeText={(text) => setCustomerInfo({...customerInfo, name: text})}
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <ThemedText style={styles.label}>Số điện thoại *</ThemedText>
-            <TextInput
-              style={styles.input}
-              placeholder="Nhập số điện thoại"
-              value={customerInfo.phone}
-              onChangeText={(text) => setCustomerInfo({...customerInfo, phone: text})}
-              keyboardType="phone-pad"
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <ThemedText style={styles.label}>Địa chỉ giao hàng *</ThemedText>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Nhập địa chỉ giao hàng"
-              value={customerInfo.address}
-              onChangeText={(text) => setCustomerInfo({...customerInfo, address: text})}
-              multiline
-              numberOfLines={3}
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <ThemedText style={styles.label}>Ghi chú</ThemedText>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Ghi chú thêm (tùy chọn)"
-              value={customerInfo.note}
-              onChangeText={(text) => setCustomerInfo({...customerInfo, note: text})}
-              multiline
-              numberOfLines={2}
-            />
-          </View>
+          <ThemedText style={styles.sectionTitle}>Địa chỉ giao hàng</ThemedText>
+          <TouchableOpacity style={styles.card} onPress={() => selectedAddress ? setAddressModalVisible(true) : router.push('/addresses')}>
+            {selectedAddress ? (
+              <View style={styles.addressContent}>
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={styles.addressName}>{selectedAddress.name} - {selectedAddress.phone}</ThemedText>
+                  <ThemedText style={styles.addressText}>{`${selectedAddress.address}, ${selectedAddress.ward}, ${selectedAddress.district}, ${selectedAddress.province}`}</ThemedText>
+                </View>
+                <IconSymbol name="chevron.right" size={20} color={Colors.light.muted} />
+              </View>
+            ) : (
+              <ThemedText style={styles.addAddressText}>Thêm địa chỉ giao hàng</ThemedText>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Order Summary */}
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Đơn hàng</ThemedText>
-          {cartItems.map((item) => (
-            <View key={item.id} style={styles.orderItem}>
-              <ThemedText style={styles.orderItemName} numberOfLines={2}>
-                {item.name}
-              </ThemedText>
-              <ThemedText style={styles.orderItemDetail}>
-                {item.quantity} x {item.price.toLocaleString('vi-VN')}₫
-              </ThemedText>
-              <ThemedText style={styles.orderItemTotal}>
-                {(item.price * item.quantity).toLocaleString('vi-VN')}₫
-              </ThemedText>
+            <ThemedText style={styles.sectionTitle}>Tóm tắt đơn hàng</ThemedText>
+            <View style={styles.card}>
+              {cart?.items.map(item => (
+                  <View key={item._id} style={styles.orderItem}>
+                      <ThemedText style={styles.orderItemName}>{item.product.name} (x{item.quantity})</ThemedText>
+                      <ThemedText style={styles.orderItemTotal}>{(item.price * item.quantity).toLocaleString('vi-VN')}₫</ThemedText>
+                  </View>
+              ))}
             </View>
-          ))}
-
-          <View style={styles.summaryRow}>
-            <ThemedText style={styles.summaryLabel}>Tạm tính:</ThemedText>
-            <ThemedText style={styles.summaryValue}>
-              {getTotalPrice().toLocaleString('vi-VN')}₫
-            </ThemedText>
-          </View>
-
-          <View style={styles.summaryRow}>
-            <ThemedText style={styles.summaryLabel}>Phí giao hàng:</ThemedText>
-            <ThemedText style={styles.summaryValue}>
-              {deliveryFee.toLocaleString('vi-VN')}₫
-            </ThemedText>
-          </View>
-
-          <View style={[styles.summaryRow, styles.totalRow]}>
-            <ThemedText style={[styles.summaryLabel, styles.totalLabel]}>Tổng cộng:</ThemedText>
-            <ThemedText style={[styles.summaryValue, styles.totalValue]}>
-              {totalPrice.toLocaleString('vi-VN')}₫
-            </ThemedText>
-          </View>
         </View>
 
         {/* Payment Method */}
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Phương thức thanh toán</ThemedText>
-          <TouchableOpacity style={styles.paymentOption}>
-            <IconSymbol name="creditcard.fill" size={24} color="#007AFF" />
-            <ThemedText style={styles.paymentText}>Thanh toán khi nhận hàng</ThemedText>
-            <IconSymbol name="checkmark" size={20} color="#007AFF" />
-          </TouchableOpacity>
+            <ThemedText style={styles.sectionTitle}>Phương thức thanh toán</ThemedText>
+            <View style={styles.card}>
+              <View style={styles.paymentOption}>
+                  <IconSymbol name="creditcard.fill" size={Sizes.icon} color={Colors.light.primary} />
+                  <ThemedText style={styles.paymentText}>Thanh toán khi nhận hàng (COD)</ThemedText>
+                  <IconSymbol name="checkmark.circle.fill" size={Sizes.icon} color={Colors.light.primary} />
+              </View>
+            </View>
         </View>
 
-        {/* Place Order Button */}
-        <TouchableOpacity style={styles.placeOrderButton} onPress={handlePlaceOrder}>
-          <ThemedText style={styles.placeOrderText}>Đặt hàng</ThemedText>
-        </TouchableOpacity>
+        {/* Totals */}
+        <View style={styles.section}>
+          <View style={styles.card}>
+            <View style={styles.summaryRow}><ThemedText style={styles.summaryLabel}>Tạm tính</ThemedText><ThemedText style={styles.summaryValue}>{(cart?.subtotal || 0).toLocaleString('vi-VN')}₫</ThemedText></View>
+            <View style={styles.summaryRow}><ThemedText style={styles.summaryLabel}>Phí vận chuyển</ThemedText><ThemedText style={styles.summaryValue}>{shippingFee.toLocaleString('vi-VN')}₫</ThemedText></View>
+            <View style={[styles.summaryRow, styles.totalRow]}>
+                <ThemedText style={styles.totalLabel}>Tổng cộng</ThemedText>
+                <ThemedText style={styles.totalValue}>{( (cart?.subtotal || 0) + shippingFee).toLocaleString('vi-VN')}₫</ThemedText>
+            </View>
+          </View>
+        </View>
       </ScrollView>
+
+      {/* Place Order Button */}
+      <View style={styles.footer}>
+        <TouchableOpacity style={[styles.placeOrderButton, (isPlacingOrder || !selectedAddress) && styles.disabledButton]} onPress={handlePlaceOrder} disabled={isPlacingOrder || !selectedAddress}>
+          {isPlacingOrder ? <ActivityIndicator color="#fff" /> : <ThemedText style={styles.placeOrderText}>ĐẶT HÀNG</ThemedText>}
+        </TouchableOpacity>
+      </View>
+
+      {/* Address Selection Modal */}
+      <Modal visible={addressModalVisible} transparent={true} animationType="slide" onRequestClose={() => setAddressModalVisible(false)}>
+        <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+                <ThemedText style={styles.modalTitle}>Chọn địa chỉ</ThemedText>
+                <FlatList 
+                    data={addresses}
+                    keyExtractor={(item) => item._id}
+                    renderItem={({item}) => (
+                        <TouchableOpacity style={styles.modalAddressItem} onPress={() => { setSelectedAddress(item); setAddressModalVisible(false); }}>
+                            <ThemedText style={styles.addressName}>{item.name} - {item.phone}</ThemedText>
+                            <ThemedText>{`${item.address}, ${item.ward}, ${item.district}, ${item.province}`}</ThemedText>
+                            {item.isDefault && <ThemedText style={styles.defaultBadge}>Mặc định</ThemedText>}
+                        </TouchableOpacity>
+                    )}
+                />
+                <TouchableOpacity style={styles.closeModalButton} onPress={() => setAddressModalVisible(false)}><ThemedText style={styles.closeModalText}>Đóng</ThemedText></TouchableOpacity>
+            </View>
+        </View>
+      </Modal>
     </ThemedView>
   );
+};
+
+export default function CheckoutWrapper() {
+    const { isAuthenticated, isLoading } = useAuth();
+    if (isLoading) return <ThemedView style={styles.centerContainer}><ActivityIndicator size="large" /></ThemedView>;
+    if (!isAuthenticated) {
+        return (
+            <ThemedView style={styles.centerContainer}>
+                <ThemedText>Vui lòng đăng nhập để thanh toán.</ThemedText>
+            </ThemedView>
+        );
+    }
+    return <CheckoutScreenContent />;
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
+  container: { flex: 1, backgroundColor: Colors.light.background },
+  scrollContent: { paddingBottom: Spacing.lg },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.light.background },
+  errorText: { color: Colors.light.secondary, fontSize: Sizes.body },
+  header: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.light.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: Colors.light.border,
   },
-  backButton: {
-    marginRight: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  section: {
-    backgroundColor: '#fff',
-    margin: 16,
-    marginTop: 0,
+  backButton: { padding: Spacing.sm },
+  headerTitle: { fontSize: Sizes.h3, fontWeight: 'bold', marginLeft: Spacing.md },
+  section: { paddingHorizontal: Spacing.md, marginTop: Spacing.lg },
+  sectionTitle: { fontSize: Sizes.h4, fontWeight: 'bold', marginBottom: Spacing.md },
+  card: {
+    backgroundColor: Colors.light.card,
     borderRadius: 12,
-    padding: 16,
+    padding: Spacing.md,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#333',
-  },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  textArea: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  cartItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    marginBottom: 8,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-  },
-  itemImageContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 8,
-    backgroundColor: '#e0e0e0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  itemInfo: {
-    flex: 1,
-  },
-  itemName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  itemPrice: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
-  },
-  itemQuantity: {
-    fontSize: 12,
-    color: '#999',
-  },
-  itemTotal: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#007AFF',
-  },
-  orderItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
+  addressContent: { flexDirection: 'row', alignItems: 'center' },
+  addressName: { fontSize: Sizes.body, fontWeight: '600', marginBottom: Spacing.xs },
+  addressText: { color: Colors.light.muted, fontSize: Sizes.small },
+  addAddressText: { color: Colors.light.primary, fontSize: Sizes.body },
+  orderItem: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: Colors.light.border,
   },
-  orderItemName: {
-    flex: 2,
-    fontSize: 14,
-    marginRight: 8,
+  orderItemName: { flex: 1, color: Colors.light.text, fontSize: Sizes.body },
+  orderItemTotal: { fontWeight: '600', fontSize: Sizes.body },
+  paymentOption: { flexDirection: 'row', alignItems: 'center' },
+  paymentText: { flex: 1, marginLeft: Spacing.md, fontSize: Sizes.body },
+  summaryRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    paddingVertical: Spacing.sm 
   },
-  orderItemDetail: {
-    flex: 1,
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
+  summaryLabel: { fontSize: Sizes.body, color: Colors.light.muted },
+  summaryValue: { fontSize: Sizes.body, fontWeight: '500' },
+  totalRow: { borderTopWidth: 1, borderColor: Colors.light.border, marginTop: Spacing.sm, paddingTop: Spacing.sm },
+  totalLabel: { fontSize: Sizes.h4, fontWeight: 'bold', color: Colors.light.text },
+  totalValue: { fontSize: Sizes.h4, fontWeight: 'bold', color: Colors.light.primary },
+  footer: { 
+    padding: Spacing.md, 
+    borderTopWidth: 1, 
+    borderColor: Colors.light.border, 
+    backgroundColor: Colors.light.card 
   },
-  orderItemTotal: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'right',
+  placeOrderButton: { 
+    backgroundColor: Colors.light.primary, 
+    paddingVertical: Spacing.md,
+    borderRadius: 12, 
+    alignItems: 'center' 
   },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
+  placeOrderText: { color: '#fff', fontSize: Sizes.h4, fontWeight: 'bold' },
+  disabledButton: { backgroundColor: Colors.light.muted },
+  // Modal Styles
+  modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
+  modalContent: { 
+    backgroundColor: Colors.light.card, 
+    borderTopLeftRadius: 20, 
+    borderTopRightRadius: 20, 
+    padding: Spacing.lg, 
+    maxHeight: '60%' 
   },
-  summaryLabel: {
-    fontSize: 14,
-    color: '#666',
+  modalTitle: { fontSize: Sizes.h3, fontWeight: 'bold', marginBottom: Spacing.lg, textAlign: 'center' },
+  modalAddressItem: { paddingVertical: Spacing.md, borderBottomWidth: 1, borderColor: Colors.light.border },
+  modalPaymentItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.md, borderBottomWidth: 1, borderColor: Colors.light.border },
+  defaultBadge: { color: Colors.light.primary, fontWeight: 'bold', marginTop: Spacing.xs, fontSize: Sizes.caption },
+  closeModalButton: { 
+    backgroundColor: Colors.light.background, 
+    padding: Spacing.md, 
+    borderRadius: 12, 
+    alignItems: 'center', 
+    marginTop: Spacing.lg 
   },
-  summaryValue: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  totalRow: {
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    paddingTop: 12,
-    marginTop: 8,
-  },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  totalValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#007AFF',
-  },
-  paymentOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-  },
-  paymentText: {
-    flex: 1,
-    fontSize: 16,
-    marginLeft: 12,
-  },
-  placeOrderButton: {
-    backgroundColor: '#007AFF',
-    margin: 16,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  placeOrderText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
+  closeModalText: { fontWeight: 'bold', fontSize: Sizes.body, color: Colors.light.text },
 });

@@ -340,10 +340,25 @@ const seedDatabase = async () => {
     console.log(`✅ Created ${createdCategories.length} categories`);
 
     // Update products with category references
-    const productsWithCategories = sampleProducts.map(product => ({
-      ...product,
-      category: createdCategories.find(cat => cat.name === product.category.name || cat.name === 'Trái cây')._id
-    }));
+    const productsWithCategories = sampleProducts.map(product => {
+      let categoryName;
+      if (product.name.includes('Bưởi')) {
+          categoryName = 'Trái cây';
+      } else if (product.name.includes('Đậu phộng')) {
+          categoryName = 'Hạt & Đậu';
+      } else if (product.name.includes('Kẹo')) {
+          categoryName = 'Kẹo & Bánh';
+      } else {
+          categoryName = 'Thực phẩm khác'; // Fallback for Cacao, Mật ong etc.
+      }
+      
+      const foundCategory = createdCategories.find(cat => cat.name === categoryName);
+      
+      return {
+          ...product,
+          category: foundCategory._id
+      };
+    });
 
     // Create products
     console.log('🌱 Creating products...');

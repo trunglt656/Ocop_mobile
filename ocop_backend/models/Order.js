@@ -162,10 +162,6 @@ orderSchema.pre(/^find/, function(next) {
 
 // Generate order number before saving
 orderSchema.pre('save', function(next) {
-  if (!this.orderNumber) {
-    this.orderNumber = `OCOP${Date.now()}${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
-  }
-
   // Set estimated delivery (3-5 days from now)
   if (!this.estimatedDelivery && this.orderStatus === 'confirmed') {
     const deliveryDate = new Date();

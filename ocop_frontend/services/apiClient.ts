@@ -1,4 +1,5 @@
 import API_CONFIG from '../constants/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Types for API responses
 export interface ApiResponse<T = any> {
@@ -133,10 +134,10 @@ class ApiClient {
   // Get auth token from storage
   private async getAuthToken(): Promise<string | null> {
     try {
-      // In a real app, you'd get this from AsyncStorage or SecureStore
-      // For now, return null - we'll implement proper auth later
-      return null;
+      const token = await AsyncStorage.getItem('@auth_token');
+      return token;
     } catch (error) {
+      console.error('Error getting auth token:', error);
       return null;
     }
   }

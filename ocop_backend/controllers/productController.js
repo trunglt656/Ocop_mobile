@@ -77,15 +77,7 @@ const getProducts = asyncHandler(async (req, res) => {
 // @access  Public
 const getProduct = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id)
-    .populate('category', 'name description')
-    .populate({
-      path: 'reviews',
-      select: 'rating comment user createdAt',
-      populate: {
-        path: 'user',
-        select: 'name avatar'
-      }
-    });
+    .populate('category', 'name description');
 
   if (!product) {
     throw new AppError('Product not found', 404);

@@ -58,6 +58,7 @@ const getOrder = asyncHandler(async (req, res) => {
 // @route   POST /api/orders
 // @access  Private
 const createOrder = asyncHandler(async (req, res) => {
+  console.log('Create order request body:', req.body);
   const { shippingAddress, paymentMethod, notes } = req.body;
 
   // Get user's cart
@@ -69,9 +70,8 @@ const createOrder = asyncHandler(async (req, res) => {
 
   // Check stock availability
   for (const item of cart.items) {
-    const product = await Product.findById(item.product);
-    if (product.stock < item.quantity) {
-      throw new AppError(`Insufficient stock for ${product.name}`, 400);
+    if (item.product.stock < item.quantity) {
+      throw new AppError(`Insufficient stock for ${item.product.name}`, 400);
     }
   }
 
@@ -104,6 +104,7 @@ const createOrder = asyncHandler(async (req, res) => {
 
   // Create order
   const order = await Order.create({
+    orderNumber: `OCOP${Date.now()}${Math.random().toString(36).substring(2, 5).toUpperCase()}`,
     user: req.user._id,
     items: orderItems,
     shippingAddress: {

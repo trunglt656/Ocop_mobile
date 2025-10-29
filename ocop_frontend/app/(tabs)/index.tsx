@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { Platform, ScrollView, StyleSheet, TouchableOpacity, FlatList, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, TouchableOpacity, FlatList, View, Button } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 
@@ -43,14 +43,7 @@ export default function HomeScreen() {
     } catch (error: any) {
       console.error('Error loading home data:', error);
       setError(error.message || 'Failed to load data');
-
-      // Fallback to static categories if API fails
-      setCategories([
-        { _id: '1', name: 'Trái cây', icon: '🍊', isActive: true, sortOrder: 1, productCount: 0, createdAt: '', updatedAt: '' },
-        { _id: '2', name: 'Hạt & Đậu', icon: '🥜', isActive: true, sortOrder: 2, productCount: 0, createdAt: '', updatedAt: '' },
-        { _id: '3', name: 'Kẹo & Bánh', icon: '🍬', isActive: true, sortOrder: 3, productCount: 0, createdAt: '', updatedAt: '' },
-        { _id: '4', name: 'Thực phẩm khác', icon: '🍽️', isActive: true, sortOrder: 4, productCount: 0, createdAt: '', updatedAt: '' },
-      ]);
+      // No fallback data, just show the error.
     } finally {
       setLoading(false);
     }
@@ -61,13 +54,13 @@ export default function HomeScreen() {
       id: '1',
       title: 'Ưu đãi đặc biệt OCOP',
       subtitle: 'Giảm giá đến 50% cho sản phẩm đặc sản Đồng Nai',
-      image: 'buoi.jpg',
+      image: require('@/assets/images/buoi.jpg'),
     },
     {
       id: '2',
       title: 'Sản phẩm tươi mới',
       subtitle: 'Hàng ngày cập nhật sản phẩm tươi ngon từ nông dân',
-      image: 'cacao.jpg',
+      image: require('@/assets/images/cacao.jpg'),
     },
   ];
 
@@ -81,7 +74,7 @@ export default function HomeScreen() {
 
   const renderBanner = ({ item }: { item: typeof banners[0] }) => (
     <TouchableOpacity style={styles.banner}>
-      <Image source={{ uri: 'https://via.placeholder.com/300x180?text=OCOP' }} style={styles.bannerImage} />
+      <Image source={item.image} style={styles.bannerImage} />
       <View style={styles.bannerOverlay}>
         <ThemedText style={styles.bannerTitle}>{item.title}</ThemedText>
         <ThemedText style={styles.bannerSubtitle}>{item.subtitle}</ThemedText>
@@ -106,7 +99,7 @@ export default function HomeScreen() {
       style={styles.productItem}
       onPress={() => handleProductPress(item._id)}>
       <Image
-        source={{ uri: item.images[0]?.url || 'https://via.placeholder.com/160x120' }}
+        source={item.images[0]?.url}
         style={styles.productImage}
       />
       <View style={styles.productInfo}>
@@ -117,7 +110,7 @@ export default function HomeScreen() {
           <ThemedText style={styles.productPrice}>
             {item.price.toLocaleString('vi-VN')}₫
           </ThemedText>
-          {item.originalPrice && (
+          {item.originalPrice && item.originalPrice > item.price && (
             <ThemedText style={styles.originalPrice}>
               {item.originalPrice.toLocaleString('vi-VN')}₫
             </ThemedText>
@@ -150,6 +143,17 @@ export default function HomeScreen() {
     );
   }
 
+  if (error) {
+    return (
+      <ThemedView style={styles.loadingContainer}>
+        <ThemedText style={{ marginBottom: 16, textAlign: 'center' }}>
+          Đã xảy ra lỗi khi tải dữ liệu: {error}
+        </ThemedText>
+        <Button title="Thử lại" onPress={loadHomeData} />
+      </ThemedView>
+    );
+  }
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header */}
@@ -162,6 +166,9 @@ export default function HomeScreen() {
             <View style={styles.notificationBadge}>
               <ThemedText style={styles.notificationText}>3</ThemedText>
             </View>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.testButton} onPress={() => router.push('/test')}>
+            <IconSymbol name="hammer.fill" size={20} color="#007AFF" />
           </TouchableOpacity>
         </View>
         <ThemedText style={styles.welcomeText}>Chào mừng đến với OCOP Đồng Nai</ThemedText>
@@ -242,7 +249,7 @@ export default function HomeScreen() {
       {/* Footer */}
       <View style={styles.footer}>
         <ThemedText style={styles.footerText}>
-          © 2024 OCOP Đồng Nai - Sản phẩm chất lượng từ nông dân Việt Nam
+          2024 OCOP Đồng Nai - Sản phẩm chất lượng từ nông dân Việt Nam
         </ThemedText>
       </View>
     </ScrollView>
@@ -275,6 +282,9 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     marginLeft: 4,
     flex: 1,
+  },
+  testButton: {
+    marginLeft: 12,
   },
   notificationButton: {
     position: 'relative',

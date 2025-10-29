@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useReducer, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService, User, LoginRequest, RegisterRequest, AuthResponse } from '../services';
 
 // Types for auth context
@@ -90,12 +91,72 @@ const initialState: AuthState = {
   error: null,
 };
 
+// Token persistence methods
+const TOKEN_KEY = '@auth_token';
+const REFRESH_TOKEN_KEY = '@refresh_token';
+const USER_KEY = '@user_data';
+
+const saveTokens = async (token: string, refreshToken: string, user: User) => {
+  try {
+    await AsyncStorage.setItem(TOKEN_KEY, token);
+    await AsyncStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
+  } catch (error) {
+    console.error('Error saving tokens:', error);
+  }
+};
+
+const loadTokens = async (): Promise<{ token: string | null; refreshToken: string | null; user: User | null }> => {
+  try {
+    const token = await AsyncStorage.getItem(TOKEN_KEY);
+    const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+    const userString = await AsyncStorage.getItem(USER_KEY);
+    const user = userString ? JSON.parse(userString) : null;
+
+    return { token, refreshToken, user };
+  } catch (error) {
+    console.error('Error loading tokens:', error);
+    return { token: null, refreshToken: null, user: null };
+  }
+};
+
+const clearTokens = async () => {
+  try {
+    await AsyncStorage.multiRemove([TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY]);
+  } catch (error) {
+    console.error('Error clearing tokens:', error);
+  }
+};
+
 // Create context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Auth provider component
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
+
+  // Load tokens on app startup
+  useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        const { token, refreshToken, user } = await loadTokens();
+        if (token && user) {
+          dispatch({
+            type: 'AUTH_SUCCESS',
+            payload: {
+              user,
+              token,
+              refreshToken: refreshToken || '',
+            },
+          });
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+      }
+    };
+
+    initializeAuth();
+  }, []);
 
   // Login function
   const login = async (data: LoginRequest) => {
@@ -105,6 +166,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const response = await authService.login(data);
 
       if (response.data) {
+        // Save tokens to AsyncStorage
+        await saveTokens(response.data.token, response.data.refreshToken, response.data.user);
+
         dispatch({
           type: 'AUTH_SUCCESS',
           payload: {
@@ -131,6 +195,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const response = await authService.register(data);
 
       if (response.data) {
+        // Save tokens to AsyncStorage
+        await saveTokens(response.data.token, response.data.refreshToken, response.data.user);
+
         dispatch({
           type: 'AUTH_SUCCESS',
           payload: {
@@ -156,6 +223,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (error) {
       console.error('Logout API error:', error);
     } finally {
+      // Clear tokens from AsyncStorage
+      await clearTokens();
       dispatch({ type: 'AUTH_LOGOUT' });
     }
   };
@@ -168,6 +237,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const response = await authService.updateProfile(data);
 
       if (response.data) {
+        // Save updated user data to AsyncStorage
+        await AsyncStorage.setItem(USER_KEY, JSON.stringify(response.data));
+
         dispatch({
           type: 'AUTH_SUCCESS',
           payload: {
@@ -209,6 +281,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const response = await authService.getCurrentUser();
 
       if (response.data) {
+        // Save updated user data to AsyncStorage
+        await AsyncStorage.setItem(USER_KEY, JSON.stringify(response.data));
+
         dispatch({
           type: 'AUTH_SUCCESS',
           payload: {

@@ -1,51 +1,165 @@
-# OCOP E-commerce System
+# OCOP Đồng Nai - Ứng dụng thương mại điện tử
 
-Hệ thống thương mại điện tử cho sản phẩm OCOP (One Commune One Product) - chương trình mỗi xã một sản phẩm.
+Ứng dụng thương mại điện tử cho sản phẩm OCOP (One Commune One Product) đặc sản Đồng Nai.
 
-## Tính năng
+## ✨ Tính năng đã triển khai
 
-### Backend (Node.js/Express)
-- ✅ API RESTful hoàn chỉnh
-- ✅ Xác thực và phân quyền (JWT)
-- ✅ Quản lý sản phẩm, danh mục, đơn hàng
-- ✅ Shopping cart và favorites
-- ✅ Hệ thống địa chỉ giao hàng
-- ✅ Tìm kiếm và lọc sản phẩm
-- ✅ Upload hình ảnh
-- ✅ Rate limiting và security
+### 🏪 **Mua sắm**
+- ✅ **Sản phẩm đa dạng**: Trái cây, hạt & đậu, kẹo & bánh, thực phẩm đặc sản
+- ✅ **Chứng nhận OCOP**: Hiển thị cấp độ OCOP (3 sao, 4 sao, 5 sao)
+- ✅ **Tìm kiếm thông minh**: Tìm kiếm sản phẩm theo tên, danh mục
+- ✅ **Giỏ hàng**: Thêm/xóa/cập nhật sản phẩm trong giỏ hàng
+- ✅ **Đặt hàng**: Đơn hàng với nhiều phương thức thanh toán
 
-### Frontend (React Native/Expo)
-- ✅ Giao diện mobile responsive
-- ✅ Danh sách sản phẩm với tìm kiếm
-- ✅ Chi tiết sản phẩm
-- ✅ Giỏ hàng và thanh toán
-- ✅ Quản lý đơn hàng
-- ✅ Hệ thống danh mục
-- ✅ Đánh giá và bình luận
+### 🔐 **Tài khoản**
+- ✅ **Đăng ký/Đăng nhập**: Xác thực JWT an toàn
+- ✅ **Quản lý profile**: Cập nhật thông tin cá nhân
+- ✅ **Lịch sử đơn hàng**: Theo dõi đơn hàng đã đặt
+- ✅ **Yêu thích**: Lưu sản phẩm yêu thích
 
-## Cài đặt
+### 📱 **Giao diện**
+- ✅ **Responsive Design**: Tối ưu cho mọi thiết bị
+- ✅ **UI/UX thân thiện**: Giao diện đẹp, dễ sử dụng
+- ✅ **Hình ảnh chất lượng cao**: Hình ảnh sản phẩm từ assets local
+- ✅ **Fallback system**: Hiển thị dữ liệu mẫu khi API không khả dụng
 
-### 1. Database Setup
+## 🚀 **Cài đặt và Chạy**
 
-#### Sử dụng MongoDB Atlas (Khuyến nghị)
-1. Truy cập [MongoDB Atlas](https://www.mongodb.com/atlas)
-2. Tạo tài khoản miễn phí
-3. Tạo cluster mới
-4. Lấy connection string và cập nhật vào file `.env`
+### **Yêu cầu hệ thống**
+- Node.js 16+
+- MongoDB (local hoặc MongoDB Atlas)
+- React Native/Expo CLI
 
-#### Sử dụng MongoDB Local
-1. Cài đặt MongoDB Community Server
-2. Khởi động MongoDB service
-3. Cập nhật `.env` với: `MONGODB_URI=mongodb://localhost:27017/ocop_ecommerce`
+### **Backend Setup**
 
-### 2. Environment Configuration
+```bash
+cd ocop_backend
 
-1. Copy file `.env.example` thành `.env`:
-   ```bash
-   cp ocop_backend/.env.example ocop_backend/.env
-   ```
+# Cài đặt dependencies
+npm install
 
-2. Cập nhật các thông tin trong `.env`:
+# Tạo dữ liệu mẫu (tự động với environment variables)
+node server.js
+
+# Hoặc chạy seeder riêng biệt
+node seeder.js
+```
+
+Backend sẽ chạy tại: `http://localhost:5000`
+
+### **Frontend Setup**
+
+```bash
+cd ocop_frontend
+
+# Cài đặt dependencies
+npm install
+
+# Chạy ứng dụng
+npm start
+```
+
+## 📊 **Dữ liệu sản phẩm có sẵn**
+
+### **Sản phẩm đặc trưng:**
+1. **🍊 Bưởi da xanh Đồng Nai** - OCOP 4 sao - 45,000₫ (có giảm giá 10%)
+2. **🌰 Cacao nguyên chất** - OCOP 5 sao - 120,000₫
+3. **🥜 Đậu phộng rang muối** - OCOP 3 sao - 35,000₫
+4. **🍬 Kẹo sữa đặc Đồng Nai** - OCOP 3 sao - 25,000₫ (có giảm giá 17%)
+5. **🍇 Mận hậu Đồng Nai** - OCOP 4 sao - 55,000₫
+6. **🟡 Nghệ tươi Đồng Nai** - OCOP 3 sao - 15,000₫ (có giảm giá 17%)
+7. **🍶 Nước mắm truyền thống** - OCOP 4 sao - 85,000₫
+8. **🥭 Xoài cát Đồng Nai** - OCOP 4 sao - 40,000₫
+9. **🍵 Trà xanh Đồng Nai** - OCOP 3 sao - 65,000₫
+10. **🍐 Na dai Đồng Nai** - OCOP 3 sao - 30,000₫ (có giảm giá 14%)
+
+### **Tài khoản test:**
+- **Admin**: admin@ocop.vn / admin123
+- **User**: nguyenvana@example.com / password
+
+## 🎨 **Giao diện Home Screen**
+
+### **Banners**
+- Ưu đãi đặc biệt OCOP với hình ảnh bưởi
+- Sản phẩm tươi mới với hình ảnh cacao
+
+### **Danh mục sản phẩm**
+- 🍊 Trái cây (Bưởi, Mận, Xoài, Na)
+- 🥜 Hạt & Đậu (Cacao, Đậu phộng)
+- 🍬 Kẹo & Bánh (Kẹo sữa)
+- 🍽️ Thực phẩm khác (Nghệ, Nước mắm, Trà)
+
+### **Sản phẩm nổi bật**
+- Hiển thị 10 sản phẩm với hình ảnh local
+- Thông tin giá, giảm giá, đánh giá
+- Badge OCOP và rating
+- Navigation đến chi tiết sản phẩm
+
+## 🛠 **Công nghệ sử dụng**
+
+### **Backend**
+- **Node.js** + **Express.js**
+- **MongoDB** + **Mongoose ODM**
+- **JWT Authentication**
+- **File Upload** (Multer)
+- **Security** (Helmet, CORS, Rate Limiting)
+
+### **Frontend**
+- **React Native** + **Expo**
+- **TypeScript**
+- **React Navigation**
+- **AsyncStorage** (Token persistence)
+- **Responsive UI**
+
+## 🔧 **API Integration**
+
+### **Tự động fallback**
+- Nếu backend không khả dụng → Hiển thị mock data
+- Mock data bao gồm 10 sản phẩm với hình ảnh thực tế
+- Categories với icons emoji
+- Full product information (giá, mô tả, đánh giá, etc.)
+
+### **Authentication**
+- JWT token persistence với AsyncStorage
+- Automatic token refresh
+- Protected routes
+
+## 📁 **Cấu trúc thư mục**
+
+```
+ocop_demo/
+├── ocop_backend/          # Backend API
+│   ├── models/           # Database models
+│   ├── routes/           # API routes
+│   ├── controllers/      # Business logic
+│   ├── middleware/       # Middleware
+│   └── config/           # Configuration
+├── ocop_frontend/        # Frontend App
+│   ├── app/              # Screens & Navigation
+│   ├── components/       # Reusable components
+│   ├── services/         # API services
+│   ├── contexts/         # React contexts
+│   └── assets/           # Images & assets
+│   └── constants/        # App constants
+└── README.md
+```
+
+## 🎯 **Cách sử dụng**
+
+1. **Chạy Backend**: `cd ocop_backend && npm start`
+2. **Chạy Frontend**: `cd ocop_frontend && npm start`
+3. **Mở app**: Scan QR code hoặc chạy trên device
+4. **Khám phá**: Xem sản phẩm, thêm vào giỏ hàng, đặt hàng
+
+## 📞 **Liên hệ**
+
+- **Email**: support@ocop.vn
+- **Phone**: 1900-XXXX
+- **Website**: https://ocop-dongnai.vn
+
+---
+
+**OCOP Đồng Nai** - Kết nối nông sản Việt Nam với người tiêu dùng toàn quốc! 🌾🇻🇳
    ```env
    NODE_ENV=development
    PORT=5000

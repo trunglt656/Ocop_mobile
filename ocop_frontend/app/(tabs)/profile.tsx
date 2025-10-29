@@ -1,152 +1,179 @@
 import React from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-
+import { useAuth } from '@/contexts/AuthContext';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Image } from 'expo-image';
 
-export default function ProfileScreen() {
+// Guest view when not logged in
+const GuestProfile = () => {
   const router = useRouter();
+  return (
+    <ThemedView style={styles.centerContainer}>
+      <IconSymbol name="person.circle" size={80} color="#ccc" />
+      <ThemedText style={styles.guestTitle}>Chào mừng bạn!</ThemedText>
+      <ThemedText style={styles.guestSubtitle}>Đăng nhập để khám phá đầy đủ tính năng.</ThemedText>
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity style={styles.loginButton} onPress={() => router.push('/login')}>
+          <ThemedText style={styles.buttonText}>Đăng Nhập</ThemedText>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.registerButton} onPress={() => router.push('/register')}>
+          <ThemedText style={styles.buttonText}>Đăng Ký</ThemedText>
+        </TouchableOpacity>
+      </View>
+    </ThemedView>
+  );
+};
+
+// Main profile screen for logged-in users
+const UserProfile = () => {
+  const router = useRouter();
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    Alert.alert(
+      'Đăng xuất',
+      'Bạn có chắc chắn muốn đăng xuất không?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { text: 'Đăng xuất', style: 'destructive', onPress: () => logout() },
+      ]
+    );
+  };
 
   const menuItems = [
-    {
-      id: 'orders',
-      title: 'Đơn hàng của tôi',
-      icon: 'bag.fill',
-      onPress: () => router.push('/orders'),
-    },
-    {
-      id: 'favorites',
-      title: 'Sản phẩm yêu thích',
-      icon: 'heart.fill',
-      onPress: () => router.push('/favorites'),
-    },
-    {
-      id: 'addresses',
-      title: 'Địa chỉ giao hàng',
-      icon: 'location.fill',
-      onPress: () => router.push('/addresses'),
-    },
-    {
-      id: 'settings',
-      title: 'Cài đặt',
-      icon: 'gearshape.fill',
-      onPress: () => router.push('/settings'),
-    },
-    {
-      id: 'help',
-      title: 'Trợ giúp & Hỗ trợ',
-      icon: 'questionmark.circle.fill',
-      onPress: () => router.push('/help'),
-    },
+    { id: 'orders', title: 'Đơn hàng của tôi', icon: 'bag.fill', onPress: () => router.push('/orders') },
+    { id: 'favorites', title: 'Sản phẩm yêu thích', icon: 'heart.fill', onPress: () => router.push('/favorites') },
+    { id: 'addresses', title: 'Địa chỉ giao hàng', icon: 'location.fill', onPress: () => router.push('/addresses') },
+    { id: 'settings', title: 'Cài đặt', icon: 'gearshape.fill', onPress: () => router.push('/settings') },
+    { id: 'help', title: 'Trợ giúp & Hỗ trợ', icon: 'questionmark.circle.fill', onPress: () => router.push('/help') },
   ];
-
-  const renderMenuItem = ({ item }: { item: typeof menuItems[0] }) => (
-    <TouchableOpacity style={styles.menuItem} onPress={item.onPress}>
-      <View style={styles.menuItemLeft}>
-        <IconSymbol name={item.icon} size={24} color="#007AFF" />
-        <ThemedText style={styles.menuItemText}>{item.title}</ThemedText>
-      </View>
-      <IconSymbol name="chevron.right" size={16} color="#999" />
-    </TouchableOpacity>
-  );
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.profileHeader}>
-        <View style={styles.avatarContainer}>
-          <IconSymbol name="person.circle.fill" size={80} color="#007AFF" />
-        </View>
-        <ThemedText style={styles.userName}>Nguyễn Văn A</ThemedText>
-        <ThemedText style={styles.userEmail}>nguyenvana@example.com</ThemedText>
-        <TouchableOpacity style={styles.editProfileButton}>
-          <ThemedText style={styles.editProfileText}>Chỉnh sửa thông tin</ThemedText>
-        </TouchableOpacity>
+        <Image 
+          source={{ uri: user?.avatar || 'https://via.placeholder.com/80' }}
+          style={styles.avatar}
+        />
+        <ThemedText style={styles.userName}>{user?.name || 'Người dùng'}</ThemedText>
+        <ThemedText style={styles.userEmail}>{user?.email || ''}</ThemedText>
       </View>
 
       <View style={styles.menuSection}>
-        {menuItems.map((item) => (
-          <View key={item.id}>
-            {renderMenuItem({ item })}
-          </View>
+        {menuItems.map(item => (
+          <TouchableOpacity key={item.id} style={styles.menuItem} onPress={item.onPress}>
+            <View style={styles.menuItemLeft}>
+              <IconSymbol name={item.icon} size={22} color="#007AFF" />
+              <ThemedText style={styles.menuItemText}>{item.title}</ThemedText>
+            </View>
+            <IconSymbol name="chevron.right" size={16} color="#ccc" />
+          </TouchableOpacity>
         ))}
       </View>
 
-      <View style={styles.statsSection}>
-        <ThemedText style={styles.sectionTitle}>Thống kê</ThemedText>
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <ThemedText style={styles.statNumber}>12</ThemedText>
-            <ThemedText style={styles.statLabel}>Đơn hàng</ThemedText>
-          </View>
-          <View style={styles.statItem}>
-            <ThemedText style={styles.statNumber}>8</ThemedText>
-            <ThemedText style={styles.statLabel}>Yêu thích</ThemedText>
-          </View>
-          <View style={styles.statItem}>
-            <ThemedText style={styles.statNumber}>4.8</ThemedText>
-            <ThemedText style={styles.statLabel}>Đánh giá</ThemedText>
-          </View>
-        </View>
+      <View style={styles.logoutButtonContainer}>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color="#ff4444" />
+          <ThemedText style={styles.logoutText}>Đăng xuất</ThemedText>
+        </TouchableOpacity>
       </View>
-
-      <TouchableOpacity style={styles.logoutButton}>
-        <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color="#ff4444" />
-        <ThemedText style={styles.logoutText}>Đăng xuất</ThemedText>
-      </TouchableOpacity>
 
       <View style={styles.footer}>
         <ThemedText style={styles.footerText}>OCOP Đồng Nai - Version 1.0.0</ThemedText>
       </View>
     </ScrollView>
   );
+};
+
+export default function ProfileScreen() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <ThemedView style={styles.centerContainer}>
+        <ActivityIndicator size="large" />
+      </ThemedView>
+    );
+  }
+
+  return isAuthenticated ? <UserProfile /> : <GuestProfile />;
 }
 
 const styles = StyleSheet.create({
+  // Common styles
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  // Guest Profile styles
+  guestTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginTop: 16,
+  },
+  guestSubtitle: {
+    fontSize: 16,
+    color: 'gray',
+    marginTop: 8,
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  loginButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+  },
+  registerButton: {
+    backgroundColor: '#34C759',
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  // User Profile styles
   profileHeader: {
     backgroundColor: '#fff',
     alignItems: 'center',
     paddingVertical: 32,
     paddingHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  avatarContainer: {
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     marginBottom: 16,
   },
   userName: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   userEmail: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 16,
-  },
-  editProfileButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#007AFF',
-  },
-  editProfileText: {
-    color: '#007AFF',
-    fontSize: 14,
   },
   menuSection: {
     backgroundColor: '#fff',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   menuItem: {
     flexDirection: 'row',
@@ -160,55 +187,30 @@ const styles = StyleSheet.create({
   menuItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 16,
   },
   menuItemText: {
     fontSize: 16,
-    marginLeft: 12,
   },
-  statsSection: {
+  logoutButtonContainer: {
     backgroundColor: '#fff',
-    marginBottom: 16,
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#007AFF',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
+    marginTop: 4,
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
-    marginBottom: 16,
     paddingVertical: 16,
-    marginHorizontal: 16,
   },
   logoutText: {
     fontSize: 16,
     color: '#ff4444',
     marginLeft: 8,
+    fontWeight: '600',
   },
   footer: {
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 24,
   },
   footerText: {
     fontSize: 12,

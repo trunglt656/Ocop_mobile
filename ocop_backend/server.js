@@ -1,5 +1,6 @@
 const express = require('express');
 const dotenv = require('dotenv');
+dotenv.config();
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
@@ -9,7 +10,45 @@ const { errorHandler } = require('./middleware/error');
 
 // Load environment variables
 console.log('🚀 Starting OCOP Backend Server...');
-dotenv.config({ path: './.env' });
+
+// Set default environment variables if not provided
+if (!process.env.MONGODB_URI) {
+  process.env.MONGODB_URI = 'mongodb+srv://haibara554_db_user:0pP6pJJ3PrqDPMeG@cluster0.lcqg2zx.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+  console.log('📝 Using default MongoDB Atlas connection string');
+}
+
+if (!process.env.PORT) {
+  process.env.PORT = '5000';
+}
+
+if (!process.env.NODE_ENV) {
+  process.env.NODE_ENV = 'development';
+}
+
+if (!process.env.JWT_SECRET) {
+  process.env.JWT_SECRET = 'your_super_secret_jwt_key_here_change_in_production';
+  console.log('📝 Using default JWT secret (change in production)');
+}
+
+if (!process.env.MAX_FILE_SIZE) {
+  process.env.MAX_FILE_SIZE = '5000000';
+}
+
+if (!process.env.FILE_UPLOAD_PATH) {
+  process.env.FILE_UPLOAD_PATH = './uploads';
+}
+
+if (!process.env.RATE_LIMIT_WINDOW_MS) {
+  process.env.RATE_LIMIT_WINDOW_MS = '900000';
+}
+
+if (!process.env.RATE_LIMIT_MAX_REQUESTS) {
+  process.env.RATE_LIMIT_MAX_REQUESTS = '100';
+}
+
+if (!process.env.JWT_EXPIRE) {
+  process.env.JWT_EXPIRE = '7d';
+}
 
 console.log('📋 Environment Check:');
 console.log('   NODE_ENV:', process.env.NODE_ENV || 'development');
