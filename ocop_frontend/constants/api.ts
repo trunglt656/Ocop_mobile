@@ -6,7 +6,7 @@
 export const API_CONFIG = {
   // Backend API base URL - change this to your deployed backend URL
   BASE_URL: __DEV__
-    ? 'http://192.168.1.18:5000/api' // <-- IMPORTANT: Change this to your computer's IP address on the local network, e.g., 'http://192.168.1.10:5000/api'
+    ? 'http://192.168.1.50:5000/api' // <-- IMPORTANT: Change this to your computer's IP address on the local network, e.g., 'http://192.168.1.10:5000/api'
     : 'https://your-backend-domain.com/api',
 
   // API endpoints
