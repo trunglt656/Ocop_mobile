@@ -1,19 +1,63 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View, Alert, ActivityIndicator } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View, Alert, ActivityIndicator, Linking } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { productService, Product, cartService } from '@/services'; // Import cartService
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Toast } from '@/components/Toast';
+import { productService, Product, cartService, favoritesService } from '@/services';
+import API_CONFIG from '@/constants/api';
+import { getPrimaryImageUrl } from '@/utils/imageHelper';
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+
+  // Check if product is favorited
+  const { data: favoriteData } = useQuery({
+    queryKey: ['favorite-check', id],
+    queryFn: async () => {
+      if (!id) return { isFavorite: false };
+      try {
+        const response = await favoritesService.checkFavorite(id as string);
+        return response.data || { isFavorite: false };
+      } catch (error) {
+        console.log('Favorite check error:', error);
+        return { isFavorite: false };
+      }
+    },
+    enabled: !!id,
+  });
+
+  const isFavorite = favoriteData?.isFavorite || false;
+
+  // Toggle favorite mutation
+  const toggleFavoriteMutation = useMutation({
+    mutationFn: (productId: string) => favoritesService.toggleFavorite(productId),
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ['favorite-check', id] });
+      queryClient.invalidateQueries({ queryKey: ['favorites'] });
+      const action = response.data?.action;
+      Alert.alert(
+        'Thành công',
+        action === 'added' ? 'Đã thêm vào danh sách yêu thích' : 'Đã xóa khỏi danh sách yêu thích'
+      );
+    },
+    onError: (error: any) => {
+      Alert.alert('Lỗi', error.message || 'Không thể cập nhật danh sách yêu thích');
+    },
+  });
 
   useEffect(() => {
     if (id) {
@@ -28,13 +72,9 @@ export default function ProductDetailScreen() {
     try {
       setLoading(true);
       setError(null);
-      // Ensure id is a string before passing
-      const response = await productService.getProduct(id as string);
-      if (response.data) {
-        setProduct(response.data);
-      } else {
-        setError('Không tìm thấy sản phẩm');
-      }
+      // productService.getProduct now returns Product directly
+      const productData = await productService.getProduct(id as string);
+      setProduct(productData);
     } catch (error: any) {
       console.error('Error loading product:', error);
       setError(error.message || 'Lỗi tải sản phẩm');
@@ -49,21 +89,34 @@ export default function ProductDetailScreen() {
     setIsAddingToCart(true);
     try {
       await cartService.addToCart({ productId: product._id, quantity });
-      Alert.alert('Thành công', `Đã thêm ${quantity} ${product.unit || 'sản phẩm'} ${product.name} vào giỏ hàng!`);
+      setToastMessage(`Đã thêm ${quantity} ${product.name} vào giỏ hàng!`);
+      setToastType('success');
+      setShowToast(true);
     } catch (err) {
       console.error('Error adding to cart:', err);
-      Alert.alert('Lỗi', 'Không thể thêm vào giỏ hàng. Vui lòng thử lại.');
+      setToastMessage('Không thể thêm vào giỏ hàng. Vui lòng thử lại.');
+      setToastType('error');
+      setShowToast(true);
     } finally {
       setIsAddingToCart(false);
     }
   };
 
-  const handleBuyNow = () => {
+  const handleBuyNow = async () => {
     if (!product) return;
-    // For now, just an alert. In a real app, this would navigate to checkout.
-    Alert.alert('Đặt hàng ngay', `Chức năng này sẽ chuyển bạn đến trang thanh toán với ${quantity} ${product.unit || 'sản phẩm'} ${product.name}.`);
-    // Example navigation:
-    // router.push({ pathname: '/checkout', params: { productId: product._id, quantity } });
+    
+    // Navigate to checkout with product info directly
+    router.push({
+      pathname: '/checkout',
+      params: {
+        directBuy: 'true',
+        productId: product._id,
+        productName: product.name,
+        productPrice: product.price.toString(),
+        productImage: getPrimaryImageUrl(product.images),
+        quantity: quantity.toString(),
+      }
+    });
   };
 
   if (loading) {
@@ -89,18 +142,40 @@ export default function ProductDetailScreen() {
   return (
     <>
       <Stack.Screen options={{ title: product.name }} />
+      <Toast 
+        visible={showToast} 
+        message={toastMessage} 
+        type={toastType}
+        onHide={() => setShowToast(false)}
+      />
       <ScrollView style={styles.container}>
         <View style={styles.imageSection}>
           <Image
-            source={{ uri: product.images[0]?.url || 'https://via.placeholder.com/400x300' }}
+            source={{ uri: getPrimaryImageUrl(product.images) }}
             style={styles.image}
             contentFit="cover"
           />
+          <TouchableOpacity
+            style={styles.favoriteButton}
+            onPress={() => toggleFavoriteMutation.mutate(product._id)}
+            disabled={toggleFavoriteMutation.isPending}
+          >
+            <IconSymbol 
+              name={isFavorite ? "heart.fill" : "heart"} 
+              size={24} 
+              color={isFavorite ? "#FF4D4F" : "#fff"}
+            />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.infoSection}>
           <ThemedText style={styles.productName}>{product.name}</ThemedText>
-          <ThemedText style={styles.price}>{product.price.toLocaleString('vi-VN')}₫ / {product.unit || 'sản phẩm'}</ThemedText>
+          <ThemedText style={styles.price}>{product.price.toLocaleString('vi-VN')}₫</ThemedText>
+          {product.producerVerified && (
+            <View style={styles.verifiedBadge}>
+              <ThemedText style={styles.verifiedText}>✓ Nguồn gốc đã xác thực</ThemedText>
+            </View>
+          )}
           
           {product.isOCOP && (
             <View style={styles.ocopBadge}>
@@ -110,6 +185,71 @@ export default function ProductDetailScreen() {
 
           <ThemedText style={styles.descriptionTitle}>Mô tả sản phẩm</ThemedText>
           <ThemedText style={styles.description}>{product.description}</ThemedText>
+
+          {/* Producer / Origin */}
+          <ThemedText style={styles.sectionTitle}>Nguồn & Nhà sản xuất</ThemedText>
+          <View style={styles.metaRow}>
+            <ThemedText style={styles.metaLabel}>Tỉnh / Huyện:</ThemedText>
+            <ThemedText style={styles.metaValue}>{product.origin?.province} / {product.origin?.district}</ThemedText>
+          </View>
+          <View style={styles.metaRow}>
+            <ThemedText style={styles.metaLabel}>Địa chỉ:</ThemedText>
+            <ThemedText style={styles.metaValue}>{product.origin?.address}</ThemedText>
+          </View>
+          <View style={styles.metaRow}>
+            <ThemedText style={styles.metaLabel}>Nhà sản xuất:</ThemedText>
+            <ThemedText style={styles.metaValue}>{product.producer?.name}</ThemedText>
+          </View>
+          {product.producer?.phone && (
+            <TouchableOpacity onPress={() => Linking.openURL(`tel:${product.producer.phone}`)}>
+              <ThemedText style={styles.link}>📞 {product.producer.phone}</ThemedText>
+            </TouchableOpacity>
+          )}
+          {product.producer?.email && (
+            <TouchableOpacity onPress={() => Linking.openURL(`mailto:${product.producer.email}`)}>
+              <ThemedText style={styles.link}>✉️ {product.producer.email}</ThemedText>
+            </TouchableOpacity>
+          )}
+
+          {/* Specifications */}
+          {product.specifications && product.specifications.length > 0 && (
+            <>
+              <ThemedText style={styles.sectionTitle}>Thông số kỹ thuật</ThemedText>
+              {product.specifications.map((s, idx) => (
+                <View key={idx} style={styles.specRow}>
+                  <ThemedText style={styles.specName}>{s.name}:</ThemedText>
+                  <ThemedText style={styles.specValue}>{s.value}</ThemedText>
+                </View>
+              ))}
+            </>
+          )}
+
+          {/* Certificates */}
+          <ThemedText style={styles.sectionTitle}>Chứng nhận & Tài liệu</ThemedText>
+          {product.certificates && product.certificates.length > 0 ? (
+            product.certificates.map((c: any) => (
+              <View key={c._id || c.filename || Math.random()} style={styles.certCard}>
+                <View style={styles.certRow}>
+                  <ThemedText style={styles.certAuthority}>{c.authority || 'Chứng nhận'}</ThemedText>
+                  {c.verified ? <ThemedText style={styles.certVerified}>Đã xác thực</ThemedText> : <ThemedText style={styles.certPending}>Chưa xác thực</ThemedText>}
+                </View>
+                <ThemedText style={styles.certMeta}>Số: {c.number || '-'}</ThemedText>
+                <ThemedText style={styles.certMeta}>Ngày cấp: {c.issuedDate ? new Date(c.issuedDate).toLocaleDateString() : '-'}</ThemedText>
+                <ThemedText style={styles.certMeta}>Hết hạn: {c.expiryDate ? new Date(c.expiryDate).toLocaleDateString() : '-'}</ThemedText>
+                {c.file?.url && (
+                  <TouchableOpacity onPress={() => {
+                    const base = API_CONFIG.BASE_URL.replace(/\/api\/?$/,'');
+                    const url = `${base}${c.file.url}`;
+                    Linking.openURL(url).catch(() => Alert.alert('Lỗi', 'Không thể mở tài liệu'));
+                  }}>
+                    <ThemedText style={styles.link}>Mở tài liệu</ThemedText>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))
+          ) : (
+            <ThemedText style={styles.metaValue}>Không có chứng nhận kèm theo</ThemedText>
+          )}
 
           <View style={styles.quantitySection}>
             <ThemedText style={styles.quantityLabel}>Số lượng</ThemedText>
@@ -164,17 +304,33 @@ const styles = StyleSheet.create({
     flex: 1, 
     backgroundColor: '#f8f9fa' 
   },
-  imageSection: { 
-    backgroundColor: '#fff' 
+  imageSection: {
+    backgroundColor: '#f8f9fa',
+    position: 'relative',
   },
   image: { 
     width: '100%', 
-    height: 350 
+    height: 300 
+  },
+  favoriteButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
   infoSection: { 
     backgroundColor: '#fff', 
     padding: 20, 
-    marginTop: 8,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     marginTop: -20,
@@ -282,6 +438,89 @@ const styles = StyleSheet.create({
     color: '#6c757d', 
     marginBottom: 24, 
     textAlign: 'center' 
+  },
+  verifiedBadge: {
+    backgroundColor: '#e6ffed',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginBottom: 12,
+  },
+  verifiedText: {
+    color: '#0a8a3e',
+    fontWeight: '600'
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 12,
+    marginBottom: 8
+  },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6
+  },
+  metaLabel: {
+    fontSize: 14,
+    color: '#495057',
+    fontWeight: '600'
+  },
+  metaValue: {
+    fontSize: 14,
+    color: '#495057'
+  },
+  link: {
+    color: '#007AFF',
+    marginTop: 6,
+    fontWeight: '600'
+  },
+  specRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f3f5'
+  },
+  specName: {
+    fontSize: 14,
+    color: '#343a40',
+    fontWeight: '600'
+  },
+  specValue: {
+    fontSize: 14,
+    color: '#495057'
+  },
+  certCard: {
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    marginBottom: 8
+  },
+  certRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6
+  },
+  certAuthority: {
+    fontSize: 14,
+    fontWeight: '700'
+  },
+  certVerified: {
+    color: '#0a8a3e',
+    fontWeight: '700'
+  },
+  certPending: {
+    color: '#6c757d',
+    fontWeight: '600'
+  },
+  certMeta: {
+    fontSize: 13,
+    color: '#6c757d'
   },
   backButton: { 
     backgroundColor: '#007AFF', 

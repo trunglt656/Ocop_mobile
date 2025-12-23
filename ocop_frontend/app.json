@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "@latest",
-    "slug": "@latest",
+    "name": "OCOP Đồng Nai",
+    "slug": "ocop-dongnai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "latest",
+    "scheme": "ocop-dongnai",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -19,7 +19,9 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.ocopdongnai.app",
+      "usesCleartextTraffic": true
     },
     "web": {
       "output": "static",
@@ -43,6 +45,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7075f3ab-7db3-4cf8-9159-d0e969bf4466"
+      }
     }
   }
 }

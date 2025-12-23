@@ -3,10 +3,22 @@ import { useFonts } from 'expo-font';
 import { Stack, SplashScreen } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider } from '@/contexts/AuthContext';
+
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+    },
+  },
+});
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -40,17 +52,26 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-          <Stack.Screen name="test" options={{ title: 'Test Screen' }} />
-          <Stack.Screen name="login" options={{ presentation: 'modal', title: 'Đăng nhập' }} />
-          <Stack.Screen name="register" options={{ presentation: 'modal', title: 'Đăng ký' }} />
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <Stack>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Cửa sổ' }} />
+              <Stack.Screen name="test" options={{ title: 'Màn hình thử nghiệm' }} />
+              <Stack.Screen name="login" options={{ presentation: 'modal', title: 'Đăng nhập' }} />
+              <Stack.Screen name="register" options={{ presentation: 'modal', title: 'Đăng ký' }} />
+              <Stack.Screen name="shop-management" options={{ title: 'Quản lý cửa hàng' }} />
+              <Stack.Screen name="shop-products" options={{ title: 'Quản lý sản phẩm' }} />
+              <Stack.Screen name="shop-orders" options={{ title: 'Quản lý đơn hàng' }} />
+              <Stack.Screen name="shop-settings" options={{ title: 'Cài đặt cửa hàng' }} />
+              <Stack.Screen name="checkout" options={{ title: 'Thanh toán' }} />
+            </Stack>
+            <StatusBar style="auto" />
+          </ThemeProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </SafeAreaProvider>
   );
 }

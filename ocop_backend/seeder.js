@@ -8,6 +8,7 @@ dotenv.config({ path: './.env' });
 const User = require('./models/User');
 const Category = require('./models/Category');
 const Product = require('./models/Product');
+const Shop = require('./models/Shop');
 const Cart = require('./models/Cart');
 const Order = require('./models/Order');
 const Address = require('./models/Address');
@@ -62,6 +63,7 @@ const sampleProducts = [
     name: 'Bưởi da xanh Đồng Nai',
     description: 'Bưởi da xanh đặc sản Đồng Nai, vỏ mỏng, múi mọng nước, vị ngọt thanh tự nhiên. Sản phẩm OCOP 4 sao được chứng nhận chất lượng cao.',
     shortDescription: 'Bưởi da xanh đặc sản Đồng Nai, OCOP 4 sao',
+    categoryName: 'Trái cây',
     price: 45000,
     originalPrice: 50000,
     discount: 10,
@@ -109,6 +111,7 @@ const sampleProducts = [
     name: 'Cacao nguyên chất Đồng Nai',
     description: 'Bột cacao nguyên chất từ hạt cacao Đồng Nai, không đường, giữ nguyên hương vị tự nhiên. Sản phẩm OCOP 3 sao.',
     shortDescription: 'Bột cacao nguyên chất Đồng Nai, OCOP 3 sao',
+    categoryName: 'Thực phẩm khác',
     price: 120000,
     originalPrice: 150000,
     discount: 20,
@@ -156,6 +159,7 @@ const sampleProducts = [
     name: 'Đậu phộng rang tỏi ớt',
     description: 'Đậu phộng rang giòn với tỏi và ớt, hương vị đậm đà đặc trưng. Sản phẩm truyền thống Đồng Nai.',
     shortDescription: 'Đậu phộng rang tỏi ớt đặc sản Đồng Nai',
+    categoryName: 'Hạt & Đậu',
     price: 35000,
     originalPrice: 40000,
     discount: 12.5,
@@ -172,7 +176,7 @@ const sampleProducts = [
     stock: 75,
     minStock: 10,
     status: 'active',
-    isFeatured: false,
+    isFeatured: true,
     isOCOP: true,
     ocopLevel: '3 sao',
     origin: {
@@ -202,6 +206,7 @@ const sampleProducts = [
     name: 'Kẹo dừa Bến Tre',
     description: 'Kẹo dừa truyền thống Bến Tre, vị ngọt thanh, dẻo dai. Sản phẩm OCOP 4 sao.',
     shortDescription: 'Kẹo dừa truyền thống Bến Tre, OCOP 4 sao',
+    categoryName: 'Kẹo & Bánh',
     price: 55000,
     originalPrice: 55000,
     discount: 0,
@@ -248,6 +253,7 @@ const sampleProducts = [
     name: 'Mật ong hoa cà phê',
     description: 'Mật ong nguyên chất từ hoa cà phê, màu vàng trong, vị ngọt thanh. Sản phẩm OCOP 3 sao.',
     shortDescription: 'Mật ong hoa cà phê nguyên chất, OCOP 3 sao',
+    categoryName: 'Thực phẩm khác',
     price: 180000,
     originalPrice: 200000,
     discount: 10,
@@ -264,7 +270,7 @@ const sampleProducts = [
     stock: 40,
     minStock: 5,
     status: 'active',
-    isFeatured: false,
+    isFeatured: true,
     isOCOP: true,
     ocopLevel: '3 sao',
     origin: {
@@ -297,7 +303,7 @@ const sampleUsers = [
   {
     name: 'Super Admin',
     email: 'admin@ocop.vn',
-    password: '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password: admin123
+    password: 'admin123',
     phone: '0901234567',
     role: 'admin',
     isActive: true,
@@ -307,7 +313,7 @@ const sampleUsers = [
   {
     name: 'Nguyễn Văn A',
     email: 'nguyenvana@example.com',
-    password: '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password: password
+    password: 'password',
     phone: '0901234568',
     role: 'user',
     isActive: true,
@@ -315,6 +321,8 @@ const sampleUsers = [
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face'
   }
 ];
+
+const bcrypt = require('bcryptjs');
 
 // Clear existing data and seed database
 const seedDatabase = async () => {
@@ -326,6 +334,7 @@ const seedDatabase = async () => {
       User.deleteMany(),
       Category.deleteMany(),
       Product.deleteMany(),
+      Shop.deleteMany(),
       Cart.deleteMany(),
       Order.deleteMany(),
       Address.deleteMany(),
@@ -340,35 +349,81 @@ const seedDatabase = async () => {
     console.log(`✅ Created ${createdCategories.length} categories`);
 
     // Update products with category references
+    const categoryMap = createdCategories.reduce((acc, category) => {
+      acc[category.name] = category._id;
+      return acc;
+    }, {});
+
+    const fallbackCategoryId =
+      categoryMap['Thực phẩm khác'] || createdCategories[0]?._id;
+
     const productsWithCategories = sampleProducts.map(product => {
-      let categoryName;
-      if (product.name.includes('Bưởi')) {
-          categoryName = 'Trái cây';
-      } else if (product.name.includes('Đậu phộng')) {
-          categoryName = 'Hạt & Đậu';
-      } else if (product.name.includes('Kẹo')) {
-          categoryName = 'Kẹo & Bánh';
-      } else {
-          categoryName = 'Thực phẩm khác'; // Fallback for Cacao, Mật ong etc.
+      const { categoryName, ...productData } = product;
+      const categoryId = categoryMap[categoryName] || fallbackCategoryId;
+
+      if (!categoryId) {
+        throw new Error(
+          `Không tìm thấy danh mục phù hợp cho sản phẩm "${product.name}". Vui lòng kiểm tra lại dữ liệu seed.`
+        );
       }
-      
-      const foundCategory = createdCategories.find(cat => cat.name === categoryName);
-      
+
       return {
-          ...product,
-          category: foundCategory._id
+        ...productData,
+        category: categoryId
       };
     });
 
-    // Create products
-    console.log('🌱 Creating products...');
-    const createdProducts = await Product.insertMany(productsWithCategories);
-    console.log(`✅ Created ${createdProducts.length} products`);
+      // Create a sample shop and attach products to it
+      console.log('🏪 Creating shop...');
+      const shop = await Shop.create({ name: 'OCOP Store - Đồng Nai', contact: { phone: '0900000000', email: 'store@ocop.vn' }, address: 'Đồng Nai' });
+      console.log('✅ Created shop', shop._id);
 
-    // Create users
-    console.log('🌱 Creating users...');
-    const createdUsers = await User.insertMany(sampleUsers);
+      const productsWithShop = productsWithCategories.map(p => ({ ...p, shop: shop._id }));
+
+      // Create products
+      console.log('🌱 Creating products...');
+      const createdProducts = await Product.insertMany(productsWithShop);
+      console.log(`✅ Created ${createdProducts.length} products`);
+
+  // Create users (ensure passwords are hashed)
+  console.log('🌱 Creating users...');
+    const usersToInsert = [];
+    for (const u of sampleUsers) {
+      const copy = { ...u };
+      // If password already looks like a bcrypt hash, keep it; otherwise hash it
+      if (typeof copy.password === 'string' && copy.password.startsWith('$2')) {
+        // already hashed
+      } else {
+        copy.password = await bcrypt.hash(String(copy.password), 10);
+      }
+      usersToInsert.push(copy);
+    }
+    // Add a shop admin user affiliated with the created shop
+    const shopAdmin = {
+      name: 'Shop Admin',
+      email: 'shopadmin@ocop.vn',
+      password: 'shopadmin123',
+      phone: '0909999999',
+      role: 'shop_admin',
+      isActive: true,
+      emailVerified: true,
+      avatar: ''
+    };
+    // Hash shopAdmin password as well before inserting
+    if (typeof shopAdmin.password === 'string' && !shopAdmin.password.startsWith('$2')) {
+      shopAdmin.password = await bcrypt.hash(String(shopAdmin.password), 10);
+    }
+    usersToInsert.push(shopAdmin);
+
+    const createdUsers = await User.insertMany(usersToInsert);
     console.log(`✅ Created ${createdUsers.length} users`);
+
+    // Assign shop owner/admin links
+    const createdShopAdmin = createdUsers.find(u => u.email === 'shopadmin@ocop.vn');
+    if (createdShopAdmin) {
+      await Shop.findByIdAndUpdate(shop._id, { owner: createdUsers[0]._id, $push: { admins: createdShopAdmin._id } });
+      await User.findByIdAndUpdate(createdShopAdmin._id, { shop: shop._id });
+    }
 
     // Update category product counts
     for (const category of createdCategories) {

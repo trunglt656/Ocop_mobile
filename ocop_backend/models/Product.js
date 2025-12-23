@@ -56,6 +56,17 @@ const productSchema = new mongoose.Schema({
     ref: 'Category',
     required: [true, 'Please add a category']
   },
+  // Shop that owns/listed this product (for marketplace multi-tenant support)
+  shop: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Shop'
+  },
+  // User who created this product (admin or shop_admin)
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
   brand: {
     type: String,
     trim: true,
@@ -87,8 +98,21 @@ const productSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['active', 'inactive', 'out_of_stock', 'discontinued'],
-    default: 'active'
+    enum: ['draft', 'pending_review', 'active', 'rejected', 'inactive', 'out_of_stock', 'discontinued'],
+    default: 'draft'
+  },
+  approvalStatus: {
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
+    },
+    reviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    reviewedAt: Date,
+    notes: String
   },
   isFeatured: {
     type: Boolean,
@@ -150,6 +174,26 @@ const productSchema = new mongoose.Schema({
     type: String,
     trim: true
   }],
+  // Certificates / verification documents for OCOP
+  certificates: [{
+    authority: { type: String }, // issuing authority
+    number: { type: String }, // certificate number
+    issuedDate: { type: Date },
+    expiryDate: { type: Date },
+    notes: { type: String },
+    file: {
+      url: { type: String },
+      filename: { type: String }
+    },
+    verified: { type: Boolean, default: false },
+    verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    verifiedAt: { type: Date }
+  }],
+  // Whether the producer/source has been verified by an admin
+  producerVerified: {
+    type: Boolean,
+    default: false
+  },
   rating: {
     average: {
       type: Number,
@@ -188,6 +232,7 @@ productSchema.index({ name: 'text', description: 'text' });
 productSchema.index({ category: 1 });
 productSchema.index({ status: 1 });
 productSchema.index({ isFeatured: 1 });
+productSchema.index({ shop: 1 });
 productSchema.index({ 'rating.average': -1 });
 productSchema.index({ price: 1 });
 productSchema.index({ createdAt: -1 });

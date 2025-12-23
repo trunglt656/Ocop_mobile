@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 
@@ -15,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { AssetIcon } from '@/components/ui/asset-icon';
 import { orderService, Order } from '@/services/orderService';
 import {
   FALLBACK_AVATAR,
@@ -26,26 +28,29 @@ import {
   ORDER_FILTERS,
   OrderFilterKey,
 } from '@/constants/orders';
+import { getImageUrl } from '@/utils/imageHelper';
 
 // Guest view when not logged in
 const GuestProfile = () => {
   const router = useRouter();
   return (
-    <ThemedView style={styles.centerContainer}>
-      <IconSymbol name="person.circle" size={80} color="#ccc" />
-      <ThemedText style={styles.guestTitle}>Chào mừng bạn!</ThemedText>
-      <ThemedText style={styles.guestSubtitle}>Đăng nhập để khám phá đầy đủ tính năng.</ThemedText>
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.loginButton} onPress={() => router.push('/login')}>
-          <IconSymbol name="lock.fill" size={18} color="#fff" />
-          <ThemedText style={styles.buttonText}>Đăng Nhập</ThemedText>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.registerButton} onPress={() => router.push('/register')}>
-          <IconSymbol name="person.badge.plus.fill" size={18} color="#fff" />
-          <ThemedText style={styles.buttonText}>Đăng Ký</ThemedText>
-        </TouchableOpacity>
-      </View>
-    </ThemedView>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <ThemedView style={styles.centerContainer}>
+        <IconSymbol name="person.circle" size={80} color="#ccc" />
+        <ThemedText style={styles.guestTitle}>Chào mừng bạn!</ThemedText>
+        <ThemedText style={styles.guestSubtitle}>Đăng nhập để khám phá đầy đủ tính năng.</ThemedText>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity style={styles.loginButton} onPress={() => router.push('/login')}>
+            <IconSymbol name="lock.fill" size={18} color="#fff" />
+            <ThemedText style={styles.buttonText}>Đăng Nhập</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.registerButton} onPress={() => router.push('/register')}>
+            <IconSymbol name="person.badge.plus.fill" size={18} color="#fff" />
+            <ThemedText style={styles.buttonText}>Đăng Ký</ThemedText>
+          </TouchableOpacity>
+        </View>
+      </ThemedView>
+    </SafeAreaView>
   );
 };
 
@@ -60,8 +65,8 @@ const UserProfile = () => {
   const [selectedFilter, setSelectedFilter] = useState<OrderFilterKey>('all');
 
   const fetchOrders = useCallback(async () => {
-    const response = await orderService.getOrders({ limit: 50 });
-    return response.data ?? [];
+    const orders = await orderService.getOrders({ limit: 50 });
+    return orders ?? [];
   }, []);
 
   useEffect(() => {
@@ -114,10 +119,10 @@ const UserProfile = () => {
   const orderSummary = useMemo(() => {
     const zeroCurrency = formatCurrency(0);
     const baseMetrics = [
-      { id: 'total', label: 'Tổng đơn', value: '0', icon: 'bag.fill', color: '#4C6FFF' },
-      { id: 'active', label: 'Đang xử lý', value: '0', icon: 'clock.fill', color: '#F59E0B' },
-      { id: 'delivered', label: 'Đã giao', value: '0', icon: 'checkmark.seal.fill', color: '#10B981' },
-      { id: 'spent', label: 'Đã chi', value: zeroCurrency, icon: 'creditcard.fill', color: '#EC4899' },
+      { id: 'total', label: 'Tổng đơn', value: '0', icon: 'bag.fill', color: '#4C6FFF', useAsset: false },
+      { id: 'active', label: 'Đang xử lý', value: '0', icon: 'clock', color: '#F59E0B', useAsset: true },
+      { id: 'delivered', label: 'Đã giao', value: '0', icon: 'checkmark', color: '#10B981', useAsset: true },
+      { id: 'spent', label: 'Đã chi', value: zeroCurrency, icon: 'creditcard', color: '#EC4899', useAsset: true },
     ];
 
     if (!orders.length) {
@@ -141,27 +146,30 @@ const UserProfile = () => {
     const totalSpent = orders.reduce((sum, order) => sum + (order.total || 0), 0);
 
     const metrics = [
-      { id: 'total', label: 'Tổng đơn', value: String(totalOrders), icon: 'bag.fill', color: '#4C6FFF' },
+      { id: 'total', label: 'Tổng đơn', value: String(totalOrders), icon: 'bag.fill', color: '#4C6FFF', useAsset: false },
       {
         id: 'active',
         label: 'Đang xử lý',
         value: String(activeOrdersList.length),
-        icon: 'clock.fill',
+        icon: 'clock',
         color: '#F59E0B',
+        useAsset: true,
       },
       {
         id: 'delivered',
         label: 'Đã giao',
         value: String(deliveredOrders),
-        icon: 'checkmark.seal.fill',
+        icon: 'checkmark',
         color: '#10B981',
+        useAsset: true,
       },
       {
         id: 'spent',
         label: 'Đã chi',
         value: formatCurrency(totalSpent),
-        icon: 'creditcard.fill',
+        icon: 'creditcard',
         color: '#EC4899',
+        useAsset: true,
       },
     ];
 
@@ -259,31 +267,32 @@ const UserProfile = () => {
   };
 
   const quickActions = [
-    { id: 'orders', label: 'Đơn hàng', icon: 'bag.fill', color: '#4C6FFF', onPress: () => router.push('/orders') },
-    { id: 'favorites', label: 'Yêu thích', icon: 'heart.fill', color: '#F472B6', onPress: () => router.push('/favorites') },
-    { id: 'addresses', label: 'Địa chỉ', icon: 'mappin.and.ellipse', color: '#2563EB', onPress: () => router.push('/addresses') },
-    { id: 'settings', label: 'Cài đặt', icon: 'gearshape.fill', color: '#22C55E', onPress: () => router.push('/settings') },
-    { id: 'help', label: 'Hỗ trợ', icon: 'questionmark.circle.fill', color: '#F97316', onPress: () => router.push('/help') },
-    { id: 'test', label: 'Thử nghiệm', icon: 'sparkles', color: '#8B5CF6', onPress: () => router.push('/modal') },
+    { id: 'orders', label: 'Đơn hàng', icon: 'bag.fill', color: '#4C6FFF', onPress: () => router.push('/orders'), useAsset: false },
+    { id: 'favorites', label: 'Yêu thích', icon: 'star', color: '#F472B6', onPress: () => router.push('/favorites'), useAsset: true },
+    { id: 'addresses', label: 'Địa chỉ', icon: 'location', color: '#2563EB', onPress: () => router.push('/addresses'), useAsset: true },
+    { id: 'shop', label: 'Quản lý Shop', icon: 'shop', color: '#F97316', onPress: () => router.push('/shop-management'), useAsset: true },
+    { id: 'settings', label: 'Cài đặt', icon: 'settings', color: '#22C55E', onPress: () => router.push('/settings'), useAsset: true },
+    { id: 'help', label: 'Hỗ trợ', icon: 'questionmark.circle.fill', color: '#8B5CF6', onPress: () => router.push('/help'), useAsset: false },
   ];
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefreshing}
-          onRefresh={handleRefresh}
-          tintColor="#007AFF"
-          colors={['#007AFF']}
-        />
-      }
-    >
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="#007AFF"
+            colors={['#007AFF']}
+          />
+        }
+      >
       <View style={styles.profileHeader}>
         <View style={styles.profileTop}>
           <Image
-            source={{ uri: user?.avatar || FALLBACK_AVATAR }}
+            source={{ uri: getImageUrl(user?.avatar) || FALLBACK_AVATAR }}
             style={styles.avatar}
             contentFit="cover"
           />
@@ -300,7 +309,7 @@ const UserProfile = () => {
         </View>
         <TouchableOpacity
           style={styles.editButton}
-          onPress={() => router.push('/settings')}
+          onPress={() => router.push('/edit-profile')}
         >
           <IconSymbol name="pencil.circle.fill" size={20} color="#fff" />
           <ThemedText style={styles.editButtonText}>Chỉnh sửa hồ sơ</ThemedText>
@@ -311,7 +320,7 @@ const UserProfile = () => {
         <View style={styles.sectionHeader}>
           <View style={styles.sectionHeaderLeft}>
             <View style={[styles.sectionIconWrapper, { backgroundColor: '#E0E7FF' }]}>
-              <IconSymbol name="chart.bar.fill" size={18} color="#4C6FFF" />
+              <AssetIcon name="chart" size={18} color="#4C6FFF" />
             </View>
             <ThemedText style={styles.sectionTitle}>Tổng quan đơn hàng</ThemedText>
           </View>
@@ -321,7 +330,11 @@ const UserProfile = () => {
             <View key={metric.id} style={styles.metricCard}>
               <View style={styles.metricHeader}>
                 <View style={[styles.metricIconWrapper, { backgroundColor: `${metric.color}1A` }]}>
-                  <IconSymbol name={metric.icon} size={18} color={metric.color} />
+                  {metric.useAsset ? (
+                    <AssetIcon name={metric.icon as any} size={18} color={metric.color} />
+                  ) : (
+                    <IconSymbol name={metric.icon} size={18} color={metric.color} />
+                  )}
                 </View>
                 <ThemedText style={styles.metricLabel}>{metric.label}</ThemedText>
               </View>
@@ -340,8 +353,8 @@ const UserProfile = () => {
                 { backgroundColor: loyaltyInfo.currentLevel.background },
               ]}
             >
-              <IconSymbol
-                name={loyaltyInfo.currentLevel.icon}
+              <AssetIcon
+                name="medal"
                 size={18}
                 color={loyaltyInfo.currentLevel.color}
               />
@@ -393,7 +406,7 @@ const UserProfile = () => {
           <View style={styles.sectionHeader}>
             <View style={styles.sectionHeaderLeft}>
               <View style={[styles.sectionIconWrapper, { backgroundColor: '#E0F2FE' }]}>
-                <IconSymbol name="location.fill" size={18} color="#0284C7" />
+                <AssetIcon name="location" size={18} color="#0284C7" />
               </View>
               <ThemedText style={styles.sectionTitle}>Đơn hàng đang xử lý</ThemedText>
             </View>
@@ -457,7 +470,7 @@ const UserProfile = () => {
         <View style={styles.sectionHeader}>
           <View style={styles.sectionHeaderLeft}>
             <View style={[styles.sectionIconWrapper, { backgroundColor: '#FEE2E2' }]}>
-              <IconSymbol name="clock.fill" size={18} color="#EF4444" />
+              <AssetIcon name="history" size={18} color="#EF4444" />
             </View>
             <ThemedText style={styles.sectionTitle}>Lịch sử đơn hàng</ThemedText>
           </View>
@@ -545,7 +558,7 @@ const UserProfile = () => {
                   activeOpacity={0.9}
                 >
                   <Image
-                    source={{ uri: firstItem?.image || FALLBACK_PRODUCT }}
+                    source={{ uri: getImageUrl(firstItem?.image) || FALLBACK_PRODUCT }}
                     style={styles.orderImage}
                     contentFit="cover"
                   />
@@ -588,7 +601,7 @@ const UserProfile = () => {
         <View style={styles.sectionHeader}>
           <View style={styles.sectionHeaderLeft}>
             <View style={[styles.sectionIconWrapper, { backgroundColor: '#DCFCE7' }]}>
-              <IconSymbol name="sparkles" size={18} color="#16A34A" />
+              <AssetIcon name="sparkles" size={18} color="#16A34A" />
             </View>
             <ThemedText style={styles.sectionTitle}>Tiện ích nhanh</ThemedText>
           </View>
@@ -601,7 +614,11 @@ const UserProfile = () => {
               onPress={action.onPress}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: `${action.color}1A` }]}>
-                <IconSymbol name={action.icon} size={20} color={action.color} />
+                {action.useAsset ? (
+                  <AssetIcon name={action.icon as any} size={20} color={action.color} />
+                ) : (
+                  <IconSymbol name={action.icon} size={20} color={action.color} />
+                )}
               </View>
               <ThemedText style={styles.quickActionLabel}>{action.label}</ThemedText>
             </TouchableOpacity>
@@ -612,7 +629,7 @@ const UserProfile = () => {
       <View style={styles.logoutCard}>
         <View style={styles.logoutCardHeader}>
           <View style={styles.logoutIconWrapper}>
-            <IconSymbol name="power" size={20} color="#FF4D4F" />
+            <AssetIcon name="power" size={20} color="#FF4D4F" />
           </View>
           <View style={styles.logoutTextWrapper}>
             <ThemedText style={styles.logoutTitle}>Đăng xuất khỏi tài khoản</ThemedText>
@@ -622,8 +639,8 @@ const UserProfile = () => {
           </View>
         </View>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <IconSymbol
-            name="rectangle.portrait.and.arrow.right"
+          <AssetIcon
+            name="logout"
             size={20}
             color="#FF4D4F"
           />
@@ -635,6 +652,7 @@ const UserProfile = () => {
         <ThemedText style={styles.footerText}>OCOP Đồng Nai • Version 1.0.0</ThemedText>
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -643,9 +661,11 @@ export default function ProfileScreen() {
 
   if (isLoading) {
     return (
-      <ThemedView style={styles.centerContainer}>
-        <ActivityIndicator size="large" />
-      </ThemedView>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <ThemedView style={styles.centerContainer}>
+          <ActivityIndicator size="large" />
+        </ThemedView>
+      </SafeAreaView>
     );
   }
 
@@ -653,6 +673,10 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',

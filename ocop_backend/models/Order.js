@@ -39,6 +39,47 @@ const orderItemSchema = new mongoose.Schema({
   timestamps: true
 });
 
+const shopOrderSchema = new mongoose.Schema({
+  shop: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Shop',
+    required: true
+  },
+  items: [orderItemSchema],
+  subtotal: {
+    type: Number,
+    required: true,
+    min: [0, 'Subtotal must be positive']
+  },
+  commission: {
+    type: Number,
+    default: 0,
+    min: [0, 'Commission must be positive']
+  },
+  shopPayout: {
+    type: Number,
+    required: true,
+    min: [0, 'Shop payout must be positive']
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'],
+    default: 'pending'
+  },
+  processedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  processedAt: Date,
+  trackingNumber: String,
+  shippingProvider: String,
+  estimatedDelivery: Date,
+  deliveredAt: Date,
+  notes: String
+}, {
+  timestamps: true
+});
+
 const orderSchema = new mongoose.Schema({
   orderNumber: {
     type: String,
@@ -51,6 +92,8 @@ const orderSchema = new mongoose.Schema({
     required: true
   },
   items: [orderItemSchema],
+  // Multi-shop order support
+  shopOrders: [shopOrderSchema],
   shippingAddress: {
     name: {
       type: String,
@@ -95,7 +138,9 @@ const orderSchema = new mongoose.Schema({
       'pending',
       'confirmed',
       'processing',
+      'partially_shipped', // Some shops shipped, others not
       'shipped',
+      'partially_delivered', // Some shops delivered, others not
       'delivered',
       'cancelled',
       'refunded'
@@ -150,6 +195,23 @@ orderSchema.index({ orderNumber: 1 });
 orderSchema.index({ orderStatus: 1 });
 orderSchema.index({ paymentStatus: 1 });
 orderSchema.index({ createdAt: -1 });
+
+// Transform shippingAddress to include fullAddress when converting to JSON
+orderSchema.set('toJSON', {
+  virtuals: true,
+  transform: function(doc, ret) {
+    if (ret.shippingAddress) {
+      const parts = [
+        ret.shippingAddress.address,
+        ret.shippingAddress.ward,
+        ret.shippingAddress.district,
+        ret.shippingAddress.province
+      ].filter(Boolean);
+      ret.shippingAddress.fullAddress = parts.join(', ');
+    }
+    return ret;
+  }
+});
 
 // Populate items products
 orderSchema.pre(/^find/, function(next) {

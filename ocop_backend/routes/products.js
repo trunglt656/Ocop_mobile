@@ -12,7 +12,9 @@ const {
   searchProducts,
   getProductStats
 } = require('../controllers/productController');
-const { protect, authorize } = require('../middleware/auth');
+const { addCertificate, verifyCertificate } = require('../controllers/productController');
+const { uploadCertificate } = require('../utils/upload');
+const { protect, authorize, checkShopOwnership, checkPermission } = require('../middleware/auth');
 const { handleValidationErrors } = require('../middleware/error');
 
 const router = express.Router();
@@ -77,13 +79,53 @@ router.get('/search', searchProducts);
 router.get('/category/:categoryId', categoryIdValidation, handleValidationErrors, getProductsByCategory);
 router.get('/:id', productIdValidation, handleValidationErrors, getProduct);
 
-// Protected routes (Admin only)
+// Protected routes (platform admin or shop admin/owner)
 router.use(protect);
-router.use(authorize('admin'));
+// Allow both platform admin, shop_owner, and shop_admin; product controller will enforce shop ownership where needed
+router.use(authorize('admin', 'shop_owner', 'shop_admin'));
 
-router.post('/', createProductValidation, handleValidationErrors, createProduct);
-router.put('/:id', productIdValidation.concat(updateProductValidation), handleValidationErrors, updateProduct);
-router.delete('/:id', productIdValidation, handleValidationErrors, deleteProduct);
+// Create product - check shop ownership for shop_admin
+router.post('/', 
+  checkShopOwnership('shop'),
+  createProductValidation, 
+  handleValidationErrors, 
+  createProduct
+);
+
+// Update product - check shop ownership for shop_admin
+router.put('/:id', 
+  checkShopOwnership('shop'),
+  productIdValidation.concat(updateProductValidation), 
+  handleValidationErrors, 
+  updateProduct
+);
+
+// Delete product - check shop ownership for shop_admin
+router.delete('/:id', 
+  checkShopOwnership('shop'),
+  productIdValidation, 
+  handleValidationErrors, 
+  deleteProduct
+);
+
 router.get('/admin/stats', getProductStats);
+
+// Admin: add certificate to product
+router.post('/:id/certificates', 
+  productIdValidation, 
+  uploadCertificate, 
+  handleValidationErrors, 
+  addCertificate
+);
+
+// Admin: verify certificate
+router.put('/:id/certificates/:certId/verify', 
+  [
+    param('id').isMongoId().withMessage('Valid product ID is required'),
+    param('certId').isMongoId().withMessage('Valid certificate ID is required')
+  ], 
+  handleValidationErrors, 
+  verifyCertificate
+);
 
 module.exports = router;

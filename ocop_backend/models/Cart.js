@@ -70,12 +70,7 @@ cartSchema.pre(/^find/, function(next) {
   next();
 });
 
-// Calculate totals after saving
-cartSchema.post('save', function(doc) {
-  doc.calculateTotals();
-});
-
-// Method to calculate totals
+// Method to calculate totals (synchronous, no save)
 cartSchema.methods.calculateTotals = function() {
   this.totalItems = this.items.reduce((total, item) => total + item.quantity, 0);
   this.totalPrice = this.items.reduce((total, item) => {
@@ -85,8 +80,6 @@ cartSchema.methods.calculateTotals = function() {
     return total + (itemPrice * item.quantity);
   }, 0);
   this.finalPrice = this.totalPrice - this.discountAmount;
-
-  return this.save({ validateBeforeSave: false });
 };
 
 // Method to add item to cart
@@ -106,9 +99,10 @@ cartSchema.methods.addItem = async function(productId, quantity = 1) {
     throw new Error('Product is not available');
   }
 
-  const existingItem = this.items.find(item =>
-    item.product.toString() === productId.toString()
-  );
+  const existingItem = this.items.find(item => {
+    const itemProductId = item.product._id || item.product;
+    return itemProductId.toString() === productId.toString();
+  });
 
   if (existingItem) {
     const newQuantity = existingItem.quantity + quantity;
@@ -125,17 +119,18 @@ cartSchema.methods.addItem = async function(productId, quantity = 1) {
     });
   }
 
-  await this.calculateTotals();
+  this.calculateTotals();
   return this.save();
 };
 
 // Method to remove item from cart
 cartSchema.methods.removeItem = async function(productId) {
-  this.items = this.items.filter(item =>
-    item.product.toString() !== productId.toString()
-  );
+  this.items = this.items.filter(item => {
+    const itemProductId = item.product._id || item.product;
+    return itemProductId.toString() !== productId.toString();
+  });
 
-  await this.calculateTotals();
+  this.calculateTotals();
   return this.save();
 };
 
@@ -156,16 +151,17 @@ cartSchema.methods.updateItemQuantity = async function(productId, quantity) {
     throw new Error('Insufficient stock');
   }
 
-  const item = this.items.find(item =>
-    item.product.toString() === productId.toString()
-  );
+  const item = this.items.find(item => {
+    const itemProductId = item.product._id || item.product;
+    return itemProductId.toString() === productId.toString();
+  });
 
   if (!item) {
     throw new Error('Item not found in cart');
   }
 
   item.quantity = quantity;
-  await this.calculateTotals();
+  this.calculateTotals();
   return this.save();
 };
 

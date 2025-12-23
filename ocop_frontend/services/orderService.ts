@@ -41,12 +41,24 @@ class OrderService {
     return apiClient.post<ApiResponse<Order>>(API_CONFIG.ENDPOINTS.ORDERS.CREATE, data);
   }
 
-  async getOrders(params?: { page?: number; limit?: number; status?: string }): Promise<ApiResponse<Order[]>> {
-    return apiClient.get<ApiResponse<Order[]>>(API_CONFIG.ENDPOINTS.ORDERS.LIST, params);
+  async getOrders(params?: { page?: number; limit?: number; status?: string }): Promise<Order[]> {
+    const response = await apiClient.get<{ data: Order[] }>(API_CONFIG.ENDPOINTS.ORDERS.LIST, params);
+    return response.data;
   }
 
-  async getOrder(id: string): Promise<ApiResponse<Order>> {
-    return apiClient.get<ApiResponse<Order>>(`${API_CONFIG.ENDPOINTS.ORDERS.DETAIL}/${id}`);
+  async getOrder(id: string): Promise<Order> {
+    const response = await apiClient.get<{ data: Order }>(`${API_CONFIG.ENDPOINTS.ORDERS.DETAIL}/${id}`);
+    return response.data;
+  }
+
+  async updateOrderStatus(id: string, status: string): Promise<Order> {
+    const response = await apiClient.patch<{ data: Order }>(`${API_CONFIG.ENDPOINTS.ORDERS.DETAIL}/${id}/status`, { orderStatus: status });
+    return response.data;
+  }
+
+  async cancelOrder(id: string, reason?: string): Promise<Order> {
+    const response = await apiClient.patch<{ data: Order }>(`${API_CONFIG.ENDPOINTS.ORDERS.DETAIL}/${id}/cancel`, { reason });
+    return response.data;
   }
 }
 

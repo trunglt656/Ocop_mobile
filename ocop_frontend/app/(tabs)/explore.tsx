@@ -1,134 +1,43 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   View,
-  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { newsService, News } from '@/services/newsService';
+import { getImageUrl } from '@/utils/imageHelper';
+import API_CONFIG from '@/constants/api';
 
-type NewsArticle = {
-  id: string;
-  title: string;
-  summary: string;
-  image: string;
-  category: string;
-  publishedAt: string;
-  author: string;
-  readingTime: number;
-  isFeatured?: boolean;
-  tags?: string[];
+const CATEGORY_LABELS: Record<string, string> = {
+  announcement: 'Thông báo',
+  news: 'Tin tức',
+  event: 'Sự kiện',
+  promotion: 'Khuyến mãi',
+  guide: 'Hướng dẫn',
 };
 
-type StatCard = {
-  id: string;
-  label: string;
-  value: string;
-  icon: string;
-  color: string;
+const CATEGORY_COLORS: Record<string, string> = {
+  announcement: '#EF4444',
+  news: '#3B82F6',
+  event: '#8B5CF6',
+  promotion: '#F59E0B',
+  guide: '#10B981',
 };
 
-type TrendingTopic = {
-  tag: string;
-  count: number;
-};
-
-const NEWS_ARTICLES: NewsArticle[] = [
-  {
-    id: 'ocop-launch',
-    title: 'Su kien OCOP Dong Nai 2025 thu hut hon 5.000 luot tham quan',
-    summary:
-      'Gian hang OCOP tai trung tam thuong mai Bien Hoa trinh dien hang chuc san pham nong nghiep, goi y mua sam Tet va cac chuong trinh khuyen mai hap dan.',
-    image:
-      'https://images.unsplash.com/photo-1455849318743-b2233052fcff?auto=format&fit=crop&w=1080&q=80',
-    category: 'Su kien',
-    publishedAt: '2025-02-21T04:30:00.000Z',
-    author: 'Ban bien tap',
-    readingTime: 4,
-    isFeatured: true,
-    tags: ['Su kien', 'Trien lam', 'OCOP'],
-  },
-  {
-    id: 'organic-tea',
-    title: 'Tra huu co OCOP len ke sieu thi, mo co hoi cho nong dan Tan Phu',
-    summary:
-      'San pham tra huu co OCOP da duoc cac sieu thi tai Bien Hoa, Ho Chi Minh va Da Nang ky ket phan phoi, mo rong dau ra ben vung cho nong dan.',
-    image:
-      'https://images.unsplash.com/photo-1515824955341-43172b000fea?auto=format&fit=crop&w=1080&q=80',
-    category: 'Nong nghiep',
-    publishedAt: '2025-02-18T08:00:00.000Z',
-    author: 'Ngoc Hanh',
-    readingTime: 5,
-    tags: ['Nong nghiep', 'Huong chuan'],
-  },
-  {
-    id: 'startup-story',
-    title: 'Cau chuyen khoi nghiep tu dac san mut du du cua 9x Tai Son',
-    summary:
-      'Thanh cong cua thuong hieu mut du du Tai Son la minh chung cho viec doi moi dong goi va ke chuyen thuong hieu giup san pham OCOP tro nen thu hut.',
-    image:
-      'https://images.unsplash.com/photo-1542831371-d531d36971e6?auto=format&fit=crop&w=1080&q=80',
-    category: 'Khoi nghiep',
-    publishedAt: '2025-02-16T06:15:00.000Z',
-    author: 'Thanh Long',
-    readingTime: 6,
-    tags: ['Khoi nghiep', 'Cau chuyen'],
-  },
-  {
-    id: 'export-lesson',
-    title: 'Bai hoc xuat khau san pham OCOP sang thi truong Han Quoc',
-    summary:
-      'Doanh nghiep OCOP Dong Nai chia se kinh nghiem dap ung tieu chuan chat luong va nghiep vu xuat khau khi lam viec voi doi tac Han Quoc.',
-    image:
-      'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1080&q=80',
-    category: 'Thi truong',
-    publishedAt: '2025-02-12T03:45:00.000Z',
-    author: 'Minh Tri',
-    readingTime: 7,
-    tags: ['Thi truong', 'Xuat khau'],
-  },
-  {
-    id: 'tourism-route',
-    title: 'Dong Nai khai truong tuyen du lich trai nghiem ket hop san pham OCOP',
-    summary:
-      'Tour trai nghiem moi dua du khach tham quan farm trai cay, lang nghe va cac gian hang OCOP tai Vinh Cuu va Thong Nhat.',
-    image:
-      'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?auto=format&fit=crop&w=1080&q=80',
-    category: 'Du lich',
-    publishedAt: '2025-02-10T10:20:00.000Z',
-    author: 'Quynh Nhi',
-    readingTime: 5,
-    tags: ['Du lich', 'Trai nghiem'],
-  },
-  {
-    id: 'digital-transformation',
-    title: 'Chuyen doi so giup doanh nghiep OCOP toi uu chuoi cung ung',
-    summary:
-      'Ung dung phan mem quan ly kho va ban le giup doanh nghiep OCOP giam ton kho, tang hieu qua van hanh trong mua Tet.',
-    image:
-      'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1080&q=80',
-    category: 'Cong nghe',
-    publishedAt: '2025-02-08T09:05:00.000Z',
-    author: 'Anh Duong',
-    readingTime: 4,
-    tags: ['Cong nghe', 'Chuyen doi so'],
-  },
-];
-
-const formatDate = (value: string) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return 'Dang cap nhat';
-  }
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
   return date.toLocaleDateString('vi-VN', {
     day: '2-digit',
     month: '2-digit',
@@ -136,296 +45,144 @@ const formatDate = (value: string) => {
   });
 };
 
-const readingTimeLabel = (minutes: number) => `${minutes} phut doc`;
-
-const sortByPublishedDate = (articles: NewsArticle[]) =>
-  [...articles].sort(
-    (a, b) =>
-      new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-  );
-
 export default function ExploreScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('Tat ca');
-  const [savedArticles, setSavedArticles] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [news, setNews] = useState<News[]>([]);
+  const [featuredNews, setFeaturedNews] = useState<News[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  const allCategories = useMemo(() => {
-    const unique = Array.from(new Set(NEWS_ARTICLES.map(article => article.category))).sort();
-    return ['Tat ca', ...unique];
-  }, []);
+  const categories = [
+    { key: 'all', label: 'Tất cả' },
+    { key: 'news', label: 'Tin tức' },
+    { key: 'event', label: 'Sự kiện' },
+    { key: 'promotion', label: 'Khuyến mãi' },
+    { key: 'announcement', label: 'Thông báo' },
+    { key: 'guide', label: 'Hướng dẫn' },
+  ];
 
-  const filteredArticles = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+  const fetchNews = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [newsResponse, featuredResponse] = await Promise.all([
+        newsService.getNews({
+          status: 'published',
+          limit: 50,
+          ...(selectedCategory !== 'all' && { category: selectedCategory }),
+          ...(searchQuery && { search: searchQuery }),
+        }),
+        newsService.getFeaturedNews(),
+      ]);
 
-    return NEWS_ARTICLES.filter(article => {
-      const matchesCategory =
-        selectedCategory === 'Tat ca' || article.category === selectedCategory;
-
-      if (!matchesCategory) return false;
-
-      if (!query) return true;
-
-      const haystack = [
-        article.title,
-        article.summary,
-        article.author,
-        ...(article.tags ?? []),
-      ]
-        .join(' ')
-        .toLowerCase();
-
-      return haystack.includes(query);
-    });
+      const newsData = newsResponse?.data?.news || [];
+      const featuredData = featuredResponse?.data?.news || [];
+      
+      setNews(newsData);
+      setFeaturedNews(featuredData);
+    } catch (error) {
+      console.error('Error fetching news:', error);
+      setNews([]);
+      setFeaturedNews([]);
+    } finally {
+      setLoading(false);
+    }
   }, [selectedCategory, searchQuery]);
 
-  const featuredArticle = useMemo(() => {
-    if (!filteredArticles.length) return null;
-    const priority = filteredArticles.find(article => article.isFeatured);
-    return priority ?? sortByPublishedDate(filteredArticles)[0];
-  }, [filteredArticles]);
+  useEffect(() => {
+    fetchNews();
+  }, [fetchNews]);
 
-  const regularArticles = useMemo(() => {
-    if (!featuredArticle) return filteredArticles;
-    return filteredArticles.filter(article => article.id !== featuredArticle.id);
-  }, [filteredArticles, featuredArticle]);
-
-  const statsCards = useMemo<StatCard[]>(() => {
-    const totalArticles = filteredArticles.length;
-    const savedCount = savedArticles.length;
-    const tagSet = new Set<string>();
-    NEWS_ARTICLES.forEach(article => article.tags?.forEach(tag => tagSet.add(tag)));
-    const latestArticle = sortByPublishedDate(NEWS_ARTICLES)[0];
-
-    return [
-      {
-        id: 'total',
-        label: 'Tong tin',
-        value: String(totalArticles),
-        icon: 'doc.text.fill',
-        color: '#2563EB',
-      },
-      {
-        id: 'saved',
-        label: 'Da luu',
-        value: String(savedCount),
-        icon: 'bookmark.fill',
-        color: '#F97316',
-      },
-      {
-        id: 'topics',
-        label: 'Chu de',
-        value: String(tagSet.size),
-        icon: 'tag.fill',
-        color: '#10B981',
-      },
-      {
-        id: 'updated',
-        label: 'Cap nhat',
-        value: formatDate(latestArticle?.publishedAt ?? ''),
-        icon: 'clock.fill',
-        color: '#6366F1',
-      },
-    ];
-  }, [filteredArticles.length, savedArticles.length]);
-
-  const trendingTopics = useMemo<TrendingTopic[]>(() => {
-    const counter: Record<string, number> = {};
-    filteredArticles.forEach(article =>
-      article.tags?.forEach(tag => {
-        counter[tag] = (counter[tag] ?? 0) + 1;
-      })
-    );
-    return Object.entries(counter)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
-      .map(([tag, count]) => ({ tag, count }));
-  }, [filteredArticles]);
-
-  const highlightArticles = useMemo(() => sortByPublishedDate(regularArticles).slice(0, 3), [
-    regularArticles,
-  ]);
-
-  const onRefresh = useCallback(() => {
+  const handleRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 800);
-  }, []);
+    await fetchNews();
+    setRefreshing(false);
+  };
 
-  const toggleSaveArticle = useCallback(
-    (articleId: string) => {
-      setSavedArticles(current =>
-        current.includes(articleId)
-          ? current.filter(id => id !== articleId)
-          : [...current, articleId]
-      );
-    },
-    [setSavedArticles]
+  const handleNewsPress = (newsItem: News) => {
+    router.push(`/news-detail?id=${newsItem._id}`);
+  };
+
+  const renderFeaturedItem = ({ item }: { item: News }) => (
+    <TouchableOpacity
+      style={styles.featuredCard}
+      onPress={() => handleNewsPress(item)}
+      activeOpacity={0.8}
+    >
+      <Image
+        source={{ uri: getImageUrl(item.thumbnail) }}
+        style={styles.featuredImage}
+        contentFit="cover"
+        transition={200}
+      />
+      <View style={styles.featuredGradient} />
+      <View style={styles.featuredContent}>
+        <View style={[styles.categoryBadge, { backgroundColor: CATEGORY_COLORS[item.category] }]}>
+          <ThemedText style={styles.categoryBadgeText}>
+            {CATEGORY_LABELS[item.category]}
+          </ThemedText>
+        </View>
+        <ThemedText style={styles.featuredTitle} numberOfLines={2}>
+          {item.title}
+        </ThemedText>
+        <View style={styles.featuredMeta}>
+          <IconSymbol name="calendar" size={14} color="#FFF" />
+          <ThemedText style={styles.featuredDate}>
+            {formatDate(item.publishedAt || item.createdAt)}
+          </ThemedText>
+        </View>
+      </View>
+    </TouchableOpacity>
   );
 
-  const openArticle = useCallback((article: NewsArticle) => {
-    Alert.alert('Tin tuc', `${article.title}\n\nNoi dung chi tiet se duoc cap nhat trong phien ban tiep theo.`);
-  }, []);
-
-  const handleSelectTag = useCallback((tag: string) => {
-    setSearchQuery(tag);
-  }, []);
-
-  const renderArticle = ({ item }: { item: NewsArticle }) => {
-    const isSaved = savedArticles.includes(item.id);
-
-    return (
+  const renderNewsItem = ({ item }: { item: News }) => (
       <TouchableOpacity
-        style={styles.articleCard}
-        activeOpacity={0.9}
-        onPress={() => openArticle(item)}
+        style={styles.newsCard}
+        onPress={() => handleNewsPress(item)}
+        activeOpacity={0.7}
       >
-        <Image source={{ uri: item.image }} style={styles.articleImage} contentFit="cover" />
-        <View style={styles.articleContent}>
-          <View style={styles.articleHeader}>
-            <View style={styles.articleCategory}>
-              <IconSymbol name="tag.fill" size={12} color="#1D4ED8" />
-              <ThemedText style={styles.articleCategoryText}>{item.category}</ThemedText>
-            </View>
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={() => toggleSaveArticle(item.id)}
-            >
-              <IconSymbol
-                name={isSaved ? 'bookmark.fill' : 'bookmark'}
-                size={16}
-                color={isSaved ? '#F97316' : '#94A3B8'}
-              />
-            </TouchableOpacity>
+        <Image
+          source={{ uri: getImageUrl(item.thumbnail) }}
+          style={styles.newsImage}
+          contentFit="cover"
+          transition={200}
+        />
+        <View style={styles.newsContent}>
+          <View style={[styles.smallCategoryBadge, { backgroundColor: CATEGORY_COLORS[item.category] }]}>
+            <ThemedText style={styles.smallCategoryText}>
+              {CATEGORY_LABELS[item.category]}
+            </ThemedText>
           </View>
-          <ThemedText style={styles.articleTitle} numberOfLines={2}>
+          <ThemedText style={styles.newsTitle} numberOfLines={2}>
             {item.title}
           </ThemedText>
-          <ThemedText style={styles.articleSummary} numberOfLines={2}>
+          <ThemedText style={styles.newsSummary} numberOfLines={2}>
             {item.summary}
           </ThemedText>
-          <View style={styles.articleMetaRow}>
-            <View style={styles.metaGroup}>
+          <View style={styles.newsMeta}>
+            <View style={styles.metaItem}>
               <IconSymbol name="calendar" size={12} color="#64748B" />
-              <ThemedText style={styles.articleMetaText}>{formatDate(item.publishedAt)}</ThemedText>
-            </View>
-            <View style={styles.metaGroup}>
-              <IconSymbol name="clock" size={12} color="#64748B" />
-              <ThemedText style={styles.articleMetaText}>
-                {readingTimeLabel(item.readingTime)}
+              <ThemedText style={styles.metaText}>
+                {formatDate(item.publishedAt || item.createdAt)}
               </ThemedText>
+            </View>
+            <View style={styles.metaItem}>
+              <IconSymbol name="eye" size={12} color="#64748B" />
+              <ThemedText style={styles.metaText}>{item.viewCount || 0}</ThemedText>
             </View>
           </View>
         </View>
       </TouchableOpacity>
-    );
-  };
-
-  const listHeader = () => (
-    <View style={[styles.headerContainer, { paddingTop: insets.top + 12 }]}>
-      <View style={styles.pageHeading}>
-        <View style={styles.pageHeadingIcon}>
-          <IconSymbol name="newspaper.fill" size={18} color="#2563EB" />
-        </View>
-        <View>
-          <ThemedText type="title" style={styles.pageTitle}>
-            Tin tuc
-          </ThemedText>
-          <ThemedText style={styles.pageSubtitle}>
-            Cap nhat cau chuyen, su kien va goc nhin ve chuong trinh OCOP Dong Nai.
-          </ThemedText>
-        </View>
-      </View>
-
-      <View style={styles.searchBar}>
-        <IconSymbol name="magnifyingglass" size={16} color="#64748B" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Tim kiem tu khoa, tac gia, the..."
-          placeholderTextColor="#9CA3AF"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          returnKeyType="search"
-        />
-        {searchQuery.length ? (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <IconSymbol name="xmark.circle.fill" size={18} color="#94A3B8" />
-          </TouchableOpacity>
-        ) : null}
-      </View>
-
-      <ScrollChips
-        categories={allCategories}
-        selected={selectedCategory}
-        onSelect={setSelectedCategory}
-      />
-
-      <StatsRow cards={statsCards} />
-
-      {trendingTopics.length ? (
-        <TrendingTopics topics={trendingTopics} onSelectTag={handleSelectTag} />
-      ) : null}
-
-      {featuredArticle ? (
-        <TouchableOpacity
-          style={styles.featuredCard}
-          activeOpacity={0.92}
-          onPress={() => openArticle(featuredArticle)}
-        >
-          <Image
-            source={{ uri: featuredArticle.image }}
-            style={StyleSheet.absoluteFillObject}
-            contentFit="cover"
-          />
-          <View style={styles.featuredOverlay} />
-          <View style={styles.featuredContent}>
-            <View style={styles.featuredTag}>
-              <IconSymbol name="bolt.fill" size={14} color="#F97316" />
-              <ThemedText style={styles.featuredTagText}>Noi bat</ThemedText>
-            </View>
-            <ThemedText style={styles.featuredTitle} numberOfLines={3}>
-              {featuredArticle.title}
-            </ThemedText>
-            <ThemedText style={styles.featuredSummary} numberOfLines={2}>
-              {featuredArticle.summary}
-            </ThemedText>
-            <View style={styles.featuredMeta}>
-              <View style={styles.metaGroup}>
-                <IconSymbol name="person.fill" size={14} color="#E2E8F0" />
-                <ThemedText style={styles.featuredMetaText}>
-                  {featuredArticle.author}
-                </ThemedText>
-              </View>
-              <View style={styles.metaGroup}>
-                <IconSymbol name="clock" size={14} color="#E2E8F0" />
-                <ThemedText style={styles.featuredMetaText}>
-                  {readingTimeLabel(featuredArticle.readingTime)}
-                </ThemedText>
-              </View>
-            </View>
-          </View>
-        </TouchableOpacity>
-      ) : null}
-
-      {highlightArticles.length ? (
-        <HighlightsList articles={highlightArticles} onPressArticle={openArticle} />
-      ) : null}
-
-      <View style={styles.sectionHeader}>
-        <ThemedText style={styles.sectionTitle}>Ban tin moi</ThemedText>
-        <ThemedText style={styles.sectionCount}>
-          {regularArticles.length} bai viet
-        </ThemedText>
-      </View>
-    </View>
   );
 
-  if (!NEWS_ARTICLES.length) {
+  if (loading && !refreshing) {
     return (
-      <ThemedView style={styles.centerScreen}>
-        <ActivityIndicator size="large" />
-        <ThemedText style={styles.loadingText}>Dang cap nhat tin tuc...</ThemedText>
+      <ThemedView style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#3B82F6" />
+        <ThemedText style={styles.loadingText}>Đang tải tin tức...</ThemedText>
       </ThemedView>
     );
   }
@@ -433,502 +190,292 @@ export default function ExploreScreen() {
   return (
     <ThemedView style={styles.container}>
       <FlatList
-        data={regularArticles}
-        keyExtractor={item => item.id}
-        renderItem={renderArticle}
-        contentContainerStyle={{
-          paddingBottom: insets.bottom + 24,
-        }}
-        ListHeaderComponent={listHeader}
-        ListEmptyComponent={() => (
-          <View style={styles.emptyState}>
-            <IconSymbol name="doc.text.magnifyingglass" size={32} color="#94A3B8" />
-            <ThemedText style={styles.emptyTitle}>Khong co bai viet phu hop</ThemedText>
-            <ThemedText style={styles.emptySubtitle}>
-              Thu thay doi tu khoa hoac chon danh muc khac de xem nhieu tin hon.
-            </ThemedText>
-          </View>
-        )}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        data={news}
+        keyExtractor={(item) => item._id}
+        renderItem={renderNewsItem}
+        contentContainerStyle={[styles.listContent, { paddingTop: insets.top + 60 }]}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563EB" />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+        ListHeaderComponent={
+          <>
+            {/* Search Bar */}
+            <View style={styles.searchContainer}>
+              <IconSymbol name="magnifyingglass" size={20} color="#64748B" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Tìm kiếm tin tức..."
+                placeholderTextColor="#94A3B8"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+            </View>
+
+            {/* Categories */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.categoriesContainer}
+              contentContainerStyle={styles.categoriesContent}
+            >
+              {categories.map((cat) => (
+                <TouchableOpacity
+                  key={cat.key}
+                  style={[
+                    styles.categoryChip,
+                    selectedCategory === cat.key && styles.categoryChipActive,
+                  ]}
+                  onPress={() => setSelectedCategory(cat.key)}
+                >
+                  <ThemedText
+                    style={[
+                      styles.categoryChipText,
+                      selectedCategory === cat.key && styles.categoryChipTextActive,
+                    ]}
+                  >
+                    {cat.label}
+                  </ThemedText>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Featured News */}
+            {featuredNews.length > 0 && (
+              <View style={styles.featuredSection}>
+                <ThemedText style={styles.sectionTitle}>Nổi bật</ThemedText>
+                <FlatList
+                  data={featuredNews}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyExtractor={(item) => item._id}
+                  renderItem={renderFeaturedItem}
+                  contentContainerStyle={styles.featuredList}
+                />
+              </View>
+            )}
+
+            <ThemedText style={styles.sectionTitle}>Tất cả tin tức</ThemedText>
+          </>
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <IconSymbol name="newspaper" size={64} color="#CBD5E1" />
+            <ThemedText style={styles.emptyText}>Chưa có tin tức</ThemedText>
+          </View>
         }
       />
+
+      {/* Fixed Header */}
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <ThemedText style={styles.headerTitle}>Tin tức OCOP</ThemedText>
+      </View>
     </ThemedView>
   );
 }
 
-type ScrollChipsProps = {
-  categories: string[];
-  selected: string;
-  onSelect: (value: string) => void;
-};
-
-const ScrollChips = ({ categories, selected, onSelect }: ScrollChipsProps) => (
-  <View style={styles.chipScroll}>
-    <FlatList
-      data={categories}
-      keyExtractor={item => item}
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.chipRow}
-      renderItem={({ item }) => {
-        const isActive = item === selected;
-        return (
-          <TouchableOpacity
-            style={[styles.chip, isActive && styles.chipActive]}
-            onPress={() => onSelect(item)}
-          >
-            <IconSymbol
-              name={isActive ? 'checkmark.circle.fill' : 'circle'}
-              size={14}
-              color={isActive ? '#fff' : '#475569'}
-            />
-            <ThemedText style={[styles.chipText, isActive && styles.chipTextActive]}>
-              {item}
-            </ThemedText>
-          </TouchableOpacity>
-        );
-      }}
-    />
-  </View>
-);
-
-type StatsRowProps = {
-  cards: StatCard[];
-};
-
-const StatsRow = ({ cards }: StatsRowProps) => (
-  <View style={styles.statsRow}>
-    {cards.map(card => (
-      <View key={card.id} style={styles.statCard}>
-        <View style={[styles.statIconWrap, { backgroundColor: `${card.color}1A` }]}>
-          <IconSymbol name={card.icon} size={16} color={card.color} />
-        </View>
-        <ThemedText style={styles.statLabel}>{card.label}</ThemedText>
-        <ThemedText style={styles.statValue}>{card.value}</ThemedText>
-      </View>
-    ))}
-  </View>
-);
-
-type TrendingTopicsProps = {
-  topics: TrendingTopic[];
-  onSelectTag: (tag: string) => void;
-};
-
-const TrendingTopics = ({ topics, onSelectTag }: TrendingTopicsProps) => (
-  <View style={styles.trendingSection}>
-    <View style={styles.trendingHeader}>
-      <View style={styles.metaGroup}>
-        <IconSymbol name="flame.fill" size={16} color="#F97316" />
-        <ThemedText style={styles.trendingTitle}>The noi bat</ThemedText>
-      </View>
-      <ThemedText style={styles.trendingSubtitle}>Chon nhanh de loc tin</ThemedText>
-    </View>
-    <FlatList
-      data={topics}
-      keyExtractor={item => item.tag}
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.trendingList}
-      renderItem={({ item }) => (
-        <TouchableOpacity
-          style={styles.trendingChip}
-          onPress={() => onSelectTag(item.tag)}
-        >
-          <IconSymbol name="number.circle.fill" size={14} color="#9333EA" />
-          <ThemedText style={styles.trendingChipText}>
-            {item.tag} ({item.count})
-          </ThemedText>
-        </TouchableOpacity>
-      )}
-    />
-  </View>
-);
-
-type HighlightsListProps = {
-  articles: NewsArticle[];
-  onPressArticle: (article: NewsArticle) => void;
-};
-
-const HighlightsList = ({ articles, onPressArticle }: HighlightsListProps) => (
-  <View style={styles.highlightSection}>
-    <View style={styles.sectionHeader}>
-      <View style={styles.metaGroup}>
-        <IconSymbol name="sparkles" size={18} color="#8B5CF6" />
-        <ThemedText style={styles.sectionTitle}>Goi y cho ban</ThemedText>
-      </View>
-    </View>
-    <View style={styles.highlightRow}>
-      {articles.map(article => (
-        <TouchableOpacity
-          key={article.id}
-          style={styles.highlightCard}
-          onPress={() => onPressArticle(article)}
-          activeOpacity={0.9}
-        >
-          <Image source={{ uri: article.image }} style={styles.highlightImage} contentFit="cover" />
-          <View style={styles.highlightContent}>
-            <ThemedText style={styles.highlightCategory}>{article.category}</ThemedText>
-            <ThemedText style={styles.highlightTitle} numberOfLines={2}>
-              {article.title}
-            </ThemedText>
-            <View style={styles.metaGroup}>
-              <IconSymbol name="clock" size={12} color="#A855F7" />
-              <ThemedText style={styles.highlightMeta}>
-                {readingTimeLabel(article.readingTime)}
-              </ThemedText>
-            </View>
-          </View>
-        </TouchableOpacity>
-      ))}
-    </View>
-  </View>
-);
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F8FAFC',
   },
-  centerScreen: {
+  centerContainer: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    padding: 24,
+    alignItems: 'center',
   },
   loadingText: {
-    fontSize: 14,
-    color: '#475569',
-    fontFamily: 'Poppins-Regular',
-  },
-  headerContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    gap: 20,
-  },
-  pageHeading: {
-    flexDirection: 'row',
-    gap: 14,
-    alignItems: 'center',
-  },
-  pageHeadingIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
-    backgroundColor: '#DBEAFE',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pageTitle: {
-    fontSize: 26,
-    fontFamily: 'Poppins-Bold',
-  },
-  pageSubtitle: {
-    fontSize: 14,
+    marginTop: 12,
     color: '#64748B',
-    fontFamily: 'Poppins-Regular',
-    marginTop: 4,
-    maxWidth: 300,
   },
-  searchBar: {
+  header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFF',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    zIndex: 10,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#0F172A',
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    fontFamily: 'Poppins-Regular',
-    color: '#0F172A',
-  },
-  chipScroll: {
-    marginHorizontal: -20,
-  },
-  chipRow: {
-    paddingHorizontal: 20,
-    gap: 10,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-  },
-  chipActive: {
-    backgroundColor: '#0F172A',
-  },
-  chipText: {
-    fontSize: 13,
-    color: '#475569',
-    fontFamily: 'Poppins-SemiBold',
-  },
-  chipTextActive: {
-    color: '#fff',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  statCard: {
-    flexGrow: 1,
-    flexBasis: '47%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 16,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  statIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statLabel: {
-    fontSize: 13,
-    color: '#64748B',
-    fontFamily: 'Poppins-Regular',
-  },
-  statValue: {
-    fontSize: 20,
-    color: '#0F172A',
-    fontFamily: 'Poppins-Bold',
-  },
-  trendingSection: {
-    gap: 12,
-  },
-  trendingHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  trendingTitle: {
+    marginLeft: 8,
     fontSize: 15,
-    fontFamily: 'Poppins-SemiBold',
     color: '#0F172A',
   },
-  trendingSubtitle: {
-    fontSize: 12,
-    fontFamily: 'Poppins-Regular',
-    color: '#64748B',
+  categoriesContainer: {
+    marginBottom: 20,
   },
-  trendingList: {
-    gap: 10,
+  categoriesContent: {
+    paddingRight: 16,
   },
-  trendingChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#F3E8FF',
-    paddingHorizontal: 14,
+  categoryChip: {
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 12,
-  },
-  trendingChipText: {
-    fontSize: 13,
-    fontFamily: 'Poppins-SemiBold',
-    color: '#6B21A8',
-  },
-  featuredCard: {
-    height: 240,
-    borderRadius: 28,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  featuredOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
-  },
-  featuredContent: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    padding: 20,
-    gap: 10,
-  },
-  featuredTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(249, 115, 22, 0.18)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  featuredTagText: {
-    fontSize: 12,
-    fontFamily: 'Poppins-SemiBold',
-    color: '#FBBF24',
-  },
-  featuredTitle: {
-    fontSize: 20,
-    fontFamily: 'Poppins-Bold',
-    color: '#fff',
-  },
-  featuredSummary: {
-    fontSize: 14,
-    fontFamily: 'Poppins-Regular',
-    color: '#E2E8F0',
-  },
-  featuredMeta: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  featuredMetaText: {
-    fontSize: 13,
-    fontFamily: 'Poppins-SemiBold',
-    color: '#E2E8F0',
-  },
-  highlightSection: {
-    gap: 12,
-  },
-  highlightRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  highlightCard: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 18,
-    overflow: 'hidden',
+    borderRadius: 20,
+    backgroundColor: '#FFF',
+    marginRight: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  highlightImage: {
-    width: '100%',
-    height: 90,
+  categoryChipActive: {
+    backgroundColor: '#3B82F6',
+    borderColor: '#3B82F6',
   },
-  highlightContent: {
-    padding: 12,
-    gap: 8,
-  },
-  highlightCategory: {
-    fontSize: 11,
-    fontFamily: 'Poppins-SemiBold',
-    color: '#6366F1',
-  },
-  highlightTitle: {
+  categoryChipText: {
     fontSize: 14,
-    fontFamily: 'Poppins-SemiBold',
-    color: '#0F172A',
+    color: '#64748B',
+    fontWeight: '500',
   },
-  highlightMeta: {
-    fontSize: 12,
-    fontFamily: 'Poppins-Regular',
-    color: '#7C3AED',
+  categoryChipTextActive: {
+    color: '#FFF',
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  featuredSection: {
+    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 18,
-    fontFamily: 'Poppins-SemiBold',
+    fontWeight: 'bold',
     color: '#0F172A',
+    marginBottom: 12,
   },
-  sectionCount: {
-    fontSize: 13,
-    fontFamily: 'Poppins-Regular',
-    color: '#64748B',
+  featuredList: {
+    paddingRight: 16,
   },
-  articleCard: {
+  featuredCard: {
+    width: 280,
+    height: 180,
+    borderRadius: 16,
+    marginRight: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  featuredImage: {
+    width: '100%',
+    height: '100%',
+  },
+  featuredGradient: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  featuredContent: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+  },
+  categoryBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  categoryBadgeText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#FFF',
+  },
+  featuredTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFF',
+    marginBottom: 6,
+  },
+  featuredMeta: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    marginHorizontal: 20,
-    borderRadius: 20,
+    alignItems: 'center',
+  },
+  featuredDate: {
+    fontSize: 12,
+    color: '#FFF',
+    marginLeft: 4,
+  },
+  newsCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    marginBottom: 12,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  articleImage: {
+  newsImage: {
     width: 120,
-    height: '100%',
+    height: 120,
   },
-  articleContent: {
+  newsContent: {
     flex: 1,
-    padding: 16,
-    gap: 10,
+    padding: 12,
   },
-  articleHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  smallCategoryBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    marginBottom: 6,
   },
-  articleCategory: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#E0E7FF',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
+  smallCategoryText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#FFF',
   },
-  articleCategoryText: {
-    fontSize: 12,
-    fontFamily: 'Poppins-SemiBold',
-    color: '#1D4ED8',
-  },
-  saveButton: {
-    padding: 6,
-  },
-  articleTitle: {
+  newsTitle: {
     fontSize: 15,
-    fontFamily: 'Poppins-SemiBold',
+    fontWeight: '600',
     color: '#0F172A',
+    marginBottom: 4,
   },
-  articleSummary: {
+  newsSummary: {
     fontSize: 13,
-    fontFamily: 'Poppins-Regular',
-    color: '#475569',
-  },
-  articleMetaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  metaGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  articleMetaText: {
-    fontSize: 12,
-    fontFamily: 'Poppins-Regular',
     color: '#64748B',
+    marginBottom: 8,
+    lineHeight: 18,
   },
-  separator: {
-    height: 16,
-  },
-  emptyState: {
+  newsMeta: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 40,
-    gap: 10,
-    paddingHorizontal: 40,
   },
-  emptyTitle: {
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  metaText: {
+    fontSize: 11,
+    color: '#64748B',
+    marginLeft: 4,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    marginTop: 12,
     fontSize: 16,
-    fontFamily: 'Poppins-SemiBold',
-    color: '#0F172A',
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    fontFamily: 'Poppins-Regular',
-    color: '#6B7280',
-    textAlign: 'center',
+    color: '#94A3B8',
   },
 });

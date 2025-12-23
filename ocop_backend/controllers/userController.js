@@ -5,7 +5,7 @@ const { asyncHandler, AppError } = require('../middleware/error');
 // @route   GET /api/users
 // @access  Private/Admin
 const getUsers = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 20, search, role, status } = req.query;
+  const { page = 1, limit = 20, search, role, isActive } = req.query;
 
   let query = {};
 
@@ -21,25 +21,28 @@ const getUsers = asyncHandler(async (req, res) => {
     query.role = role;
   }
 
-  if (status !== undefined) {
-    query.isActive = status === 'active';
+  if (isActive !== undefined) {
+    query.isActive = isActive === 'true';
   }
 
   const users = await User.find(query)
     .select('-password -refreshToken')
+    .populate('shop', 'name slug')
     .sort('-createdAt')
     .skip((parseInt(page) - 1) * parseInt(limit))
     .limit(parseInt(limit));
 
-  const totalCount = await User.countDocuments(query);
+  const total = await User.countDocuments(query);
 
   res.status(200).json({
     success: true,
-    count: users.length,
-    totalCount,
-    totalPages: Math.ceil(totalCount / limit),
-    currentPage: parseInt(page),
-    data: users
+    data: users,
+    pagination: {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total,
+      pages: Math.ceil(total / parseInt(limit))
+    }
   });
 });
 
@@ -165,10 +168,75 @@ const getUserStats = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Toggle user status (Admin only)
+// @route   PATCH /api/users/:id/toggle-status
+// @access  Private/Admin
+const toggleUserStatus = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id);
+
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+
+  // Prevent disabling admin users
+  if (user.role === 'admin') {
+    throw new AppError('Cannot disable admin user', 400);
+  }
+
+  user.isActive = !user.isActive;
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: `User ${user.isActive ? 'activated' : 'deactivated'} successfully`,
+    data: user
+  });
+});
+
+// @desc    Change user role (Admin only)
+// @route   PATCH /api/users/:id/change-role
+// @access  Private/Admin
+const changeUserRole = asyncHandler(async (req, res) => {
+  const { role, shop } = req.body;
+  
+  if (!role || !['user', 'shop_admin', 'admin'].includes(role)) {
+    throw new AppError('Invalid role specified', 400);
+  }
+
+  const user = await User.findById(req.params.id);
+
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+
+  // If changing to shop_admin, shop is required
+  if (role === 'shop_admin' && !shop) {
+    throw new AppError('Shop ID is required for shop_admin role', 400);
+  }
+
+  // If changing from shop_admin to other role, remove shop affiliation
+  if (role !== 'shop_admin') {
+    user.shop = undefined;
+  } else {
+    user.shop = shop;
+  }
+
+  user.role = role;
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: 'User role changed successfully',
+    data: user
+  });
+});
+
 module.exports = {
   getUsers,
   getUser,
   updateUser,
   deleteUser,
-  getUserStats
+  getUserStats,
+  toggleUserStatus,
+  changeUserRole
 };

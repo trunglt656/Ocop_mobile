@@ -47,11 +47,30 @@ export interface Product {
   minStock: number;
   maxStock?: number;
   status: 'active' | 'inactive' | 'out_of_stock' | 'discontinued';
+  approvalStatus?: {
+    status: 'pending' | 'approved' | 'rejected';
+    reviewedBy?: string;
+    reviewedAt?: string;
+    notes?: string;
+  };
   isFeatured: boolean;
   isOCOP: boolean;
   ocopLevel: string;
   origin: ProductOrigin;
   producer: ProductProducer;
+  certificates?: Array<{
+    _id?: string;
+    authority?: string;
+    number?: string;
+    issuedDate?: string;
+    expiryDate?: string;
+    notes?: string;
+    file?: { url?: string; filename?: string };
+    verified?: boolean;
+    verifiedBy?: string;
+    verifiedAt?: string;
+  }>;
+  producerVerified?: boolean;
   specifications?: Array<{
     name: string;
     value: string;
@@ -78,24 +97,26 @@ export interface ProductListResponse {
 
 export interface CreateProductRequest {
   name: string;
-  description: string;
+  description?: string;
   shortDescription?: string;
   price: number;
   originalPrice?: number;
   discount?: number;
   category: string;
+  shop?: string;
   brand?: string;
   weight?: number;
   unit?: string;
   stock: number;
+  images?: Array<{ url: string; alt?: string; isPrimary?: boolean }> | string[];
   minStock?: number;
   maxStock?: number;
   status?: 'active' | 'inactive' | 'out_of_stock' | 'discontinued';
   isFeatured?: boolean;
   isOCOP?: boolean;
   ocopLevel?: string;
-  origin: ProductOrigin;
-  producer: ProductProducer;
+  origin?: ProductOrigin;
+  producer?: ProductProducer;
   specifications?: Array<{
     name: string;
     value: string;
@@ -123,8 +144,9 @@ class ProductService {
   }
 
   // Get single product
-  async getProduct(id: string): Promise<ApiResponse<Product>> {
-    return apiClient.get<ApiResponse<Product>>(`${API_CONFIG.ENDPOINTS.PRODUCTS.DETAIL}/${id}`);
+  async getProduct(id: string): Promise<Product> {
+    const response = await apiClient.get<{ data: Product }>(`${API_CONFIG.ENDPOINTS.PRODUCTS.DETAIL}/${id}`);
+    return response.data;
   }
 
   // Get products by category
@@ -171,18 +193,21 @@ class ProductService {
   }
 
   // Create product (Admin only)
-  async createProduct(data: CreateProductRequest): Promise<ApiResponse<Product>> {
-    return apiClient.post<ApiResponse<Product>>(API_CONFIG.ENDPOINTS.PRODUCTS.LIST, data);
+  async createProduct(data: CreateProductRequest): Promise<Product> {
+    const response = await apiClient.post<{ data: Product }>(API_CONFIG.ENDPOINTS.PRODUCTS.LIST, data);
+    return response.data;
   }
 
   // Update product (Admin only)
-  async updateProduct(id: string, data: UpdateProductRequest): Promise<ApiResponse<Product>> {
-    return apiClient.put<ApiResponse<Product>>(`${API_CONFIG.ENDPOINTS.PRODUCTS.DETAIL}/${id}`, data);
+  async updateProduct(id: string, data: UpdateProductRequest): Promise<Product> {
+    const response = await apiClient.put<{ data: Product }>(`${API_CONFIG.ENDPOINTS.PRODUCTS.DETAIL}/${id}`, data);
+    return response.data;
   }
 
   // Delete product (Admin only)
-  async deleteProduct(id: string): Promise<ApiResponse<{ message: string }>> {
-    return apiClient.delete<ApiResponse<{ message: string }>>(`${API_CONFIG.ENDPOINTS.PRODUCTS.DETAIL}/${id}`);
+  async deleteProduct(id: string): Promise<string> {
+    const response = await apiClient.delete<{ message: string }>(`${API_CONFIG.ENDPOINTS.PRODUCTS.DETAIL}/${id}`);
+    return response.message;
   }
 
   // Get product statistics (Admin only)

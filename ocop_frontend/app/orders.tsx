@@ -7,17 +7,20 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { orderService, Order } from '@/services/orderService';
+import { getImageUrl } from '@/utils/imageHelper';
 import {
   formatCurrency,
   formatOrderDate,
   getOrderErrorMessage,
   getOrderStatusMeta,
+  getFullAddress,
   ORDER_FILTERS,
   OrderFilterKey,
 } from '@/constants/orders';
@@ -33,8 +36,8 @@ export default function OrdersScreen() {
   const [selectedFilter, setSelectedFilter] = useState<OrderFilterKey>('all');
 
   const fetchOrders = useCallback(async () => {
-    const response = await orderService.getOrders({ limit: 100 });
-    return response.data ?? [];
+    const orders = await orderService.getOrders({ limit: 100 });
+    return orders ?? [];
   }, []);
 
   const loadOrders = useCallback(async () => {
@@ -79,10 +82,10 @@ export default function OrdersScreen() {
   const orderMetrics = useMemo(() => {
     if (!orders.length) {
       return [
-        { id: 'total', label: 'Tổng đơn', value: '0', icon: 'bag.fill', color: '#4C6FFF' },
-        { id: 'active', label: 'Đang xử lý', value: '0', icon: 'clock.fill', color: '#F59E0B' },
-        { id: 'delivered', label: 'Đã giao', value: '0', icon: 'checkmark.seal.fill', color: '#10B981' },
-        { id: 'spent', label: 'Đã chi', value: '0 ₫', icon: 'creditcard.fill', color: '#EC4899' },
+        { id: 'total', label: 'Tổng đơn', value: '0', icon: 'bag.badge.plus', color: '#4C6FFF' },
+        { id: 'active', label: 'Đang xử lý', value: '0', icon: 'arrow.triangle.2.circlepath', color: '#F59E0B' },
+        { id: 'delivered', label: 'Đã giao', value: '0', icon: 'checkmark.circle.fill', color: '#10B981' },
+        { id: 'spent', label: 'Đã chi', value: '0 ₫', icon: 'dollarsign.circle.fill', color: '#EC4899' },
       ];
     }
 
@@ -92,10 +95,10 @@ export default function OrdersScreen() {
     const totalSpent = orders.reduce((sum, order) => sum + (order.total || 0), 0);
 
     return [
-      { id: 'total', label: 'Tổng đơn', value: String(totalOrders), icon: 'bag.fill', color: '#4C6FFF' },
-      { id: 'active', label: 'Đang xử lý', value: String(activeOrders), icon: 'clock.fill', color: '#F59E0B' },
-      { id: 'delivered', label: 'Đã giao', value: String(deliveredOrders), icon: 'checkmark.seal.fill', color: '#10B981' },
-      { id: 'spent', label: 'Đã chi', value: formatCurrency(totalSpent), icon: 'creditcard.fill', color: '#EC4899' },
+      { id: 'total', label: 'Tổng đơn', value: String(totalOrders), icon: 'bag.badge.plus', color: '#4C6FFF' },
+      { id: 'active', label: 'Đang xử lý', value: String(activeOrders), icon: 'arrow.triangle.2.circlepath', color: '#F59E0B' },
+      { id: 'delivered', label: 'Đã giao', value: String(deliveredOrders), icon: 'checkmark.circle.fill', color: '#10B981' },
+      { id: 'spent', label: 'Đã chi', value: formatCurrency(totalSpent), icon: 'dollarsign.circle.fill', color: '#EC4899' },
     ];
   }, [orders]);
 
@@ -125,13 +128,17 @@ export default function OrdersScreen() {
           </View>
 
           <View style={styles.orderBody}>
-            <IconSymbol name="calendar" size={18} color="#64748B" />
+            <IconSymbol name="calendar.badge.clock" size={18} color="#64748B" />
             <ThemedText style={styles.orderMetaText}>{formatOrderDate(item.createdAt)}</ThemedText>
           </View>
 
           <View style={styles.orderSummary}>
             <View style={styles.orderProducts}>
-              <IconSymbol name="shippingbox.fill" size={18} color="#1E40AF" />
+              <Image
+                source={{ uri: getImageUrl(firstItem?.image) }}
+                style={styles.orderProductImage}
+                contentFit="cover"
+              />
               <View style={styles.orderProductInfo}>
                 <ThemedText style={styles.orderTitle} numberOfLines={1}>
                   {firstItem?.name || 'Đơn hàng OCOP'}
@@ -149,14 +156,14 @@ export default function OrdersScreen() {
 
           <View style={styles.orderFooter}>
             <View style={styles.orderFooterLeft}>
-              <IconSymbol name="mappin.and.ellipse" size={16} color="#2563EB" />
+              <IconSymbol name="location.fill" size={16} color="#2563EB" />
               <ThemedText style={styles.orderFooterText} numberOfLines={1}>
-                {item.shippingAddress?.fullAddress || 'Chưa có địa chỉ giao hàng'}
+                {getFullAddress(item.shippingAddress)}
               </ThemedText>
             </View>
             <View style={styles.orderFooterRight}>
               <ThemedText style={styles.viewDetailText}>Xem chi tiết</ThemedText>
-              <IconSymbol name="chevron.right" size={14} color="#2563EB" />
+              <IconSymbol name="arrow.right.circle.fill" size={16} color="#2563EB" />
             </View>
           </View>
         </TouchableOpacity>
@@ -249,7 +256,7 @@ export default function OrdersScreen() {
             ListHeaderComponent={renderHeader}
             ListEmptyComponent={
               <View style={styles.emptyState}>
-                <IconSymbol name="tray" size={36} color="#94A3B8" />
+                <IconSymbol name="shippingbox" size={48} color="#94A3B8" />
                 <ThemedText style={styles.emptyTitle}>Chưa có đơn hàng</ThemedText>
                 <ThemedText style={styles.emptySubtitle}>
                   Đặt sản phẩm đầu tiên để xem lịch sử mua hàng tại đây.
@@ -420,6 +427,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     alignItems: 'flex-start',
+  },
+  orderProductImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
   },
   orderProductInfo: {
     flex: 1,

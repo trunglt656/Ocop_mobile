@@ -16,10 +16,15 @@ const getProducts = asyncHandler(async (req, res) => {
     maxPrice,
     sort = '-createdAt',
     featured,
-    status = 'active'
+    status
   } = req.query;
 
-  let query = { status };
+  let query = {};
+  
+  // Only filter by status if explicitly provided
+  if (status) {
+    query.status = status;
+  }
 
   // Filter by category
   if (category) {
@@ -54,7 +59,10 @@ const getProducts = asyncHandler(async (req, res) => {
       page: parseInt(page),
       limit: parseInt(limit),
       sort,
-      populate: 'category'
+      populate: [
+        { path: 'category', select: 'name' },
+        { path: 'createdBy', select: 'name email' }
+      ]
     });
     products = await productQuery;
   }
@@ -128,6 +136,11 @@ const getProductsByCategory = asyncHandler(async (req, res) => {
 const createProduct = asyncHandler(async (req, res) => {
   // Add user to product (for admin tracking)
   req.body.createdBy = req.user._id;
+  // If shop_owner or shop_admin, ensure product is created for their own shop
+  if (req.user.role === 'shop_owner' || req.user.role === 'shop_admin') {
+    if (!req.user.shop) throw new AppError('Shop affiliation required for shop user', 403);
+    req.body.shop = req.user.shop;
+  }
 
   const product = await Product.create(req.body);
 
@@ -152,6 +165,21 @@ const updateProduct = asyncHandler(async (req, res) => {
 
   if (!product) {
     throw new AppError('Product not found', 404);
+  }
+
+  // If shop_owner or shop_admin, only allow update if product belongs to their shop
+  if (req.user.role === 'shop_owner' || req.user.role === 'shop_admin') {
+    if (!req.user.shop) {
+      throw new AppError('Shop affiliation required', 403);
+    }
+    // If product has a shop, it must match user's shop
+    if (product.shop && product.shop.toString() !== req.user.shop.toString()) {
+      throw new AppError('Not authorized to update this product', 403);
+    }
+    // If product doesn't have a shop, assign user's shop
+    if (!product.shop) {
+      req.body.shop = req.user.shop;
+    }
   }
 
   // Check if category is being changed
@@ -190,6 +218,17 @@ const deleteProduct = asyncHandler(async (req, res) => {
 
   if (!product) {
     throw new AppError('Product not found', 404);
+  }
+
+  // If shop_owner or shop_admin, only allow delete if product belongs to their shop
+  if (req.user.role === 'shop_owner' || req.user.role === 'shop_admin') {
+    if (!req.user.shop) {
+      throw new AppError('Shop affiliation required', 403);
+    }
+    // If product has a shop, it must match user's shop
+    if (product.shop && product.shop.toString() !== req.user.shop.toString()) {
+      throw new AppError('Not authorized to delete this product', 403);
+    }
   }
 
   // Update category product count
@@ -353,6 +392,78 @@ const getProductStats = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Add certificate document to a product (Admin only)
+// @route   POST /api/products/:id/certificates
+// @access  Private/Admin
+const addCertificate = asyncHandler(async (req, res) => {
+  const { authority, number, issuedDate, expiryDate, notes } = req.body;
+
+  const product = await Product.findById(req.params.id);
+  if (!product) {
+    throw new AppError('Product not found', 404);
+  }
+
+  if (!req.file) {
+    throw new AppError('Certificate file is required', 400);
+  }
+
+  const fileUrl = `/uploads/${req.file.filename}`;
+
+  const cert = {
+    authority: authority || '',
+    number: number || '',
+    issuedDate: issuedDate ? new Date(issuedDate) : undefined,
+    expiryDate: expiryDate ? new Date(expiryDate) : undefined,
+    notes: notes || '',
+    file: {
+      url: fileUrl,
+      filename: req.file.filename
+    },
+    verified: false
+  };
+
+  product.certificates = product.certificates || [];
+  product.certificates.push(cert);
+
+  await product.save();
+
+  res.status(201).json({
+    success: true,
+    message: 'Certificate added to product',
+    data: product.certificates[product.certificates.length - 1]
+  });
+});
+
+// @desc    Verify a product certificate (Admin only)
+// @route   PUT /api/products/:id/certificates/:certId/verify
+// @access  Private/Admin
+const verifyCertificate = asyncHandler(async (req, res) => {
+  const product = await Product.findById(req.params.id);
+  if (!product) {
+    throw new AppError('Product not found', 404);
+  }
+
+  const cert = product.certificates.id(req.params.certId);
+  if (!cert) {
+    throw new AppError('Certificate not found', 404);
+  }
+
+  cert.verified = true;
+  cert.verifiedBy = req.user._id;
+  cert.verifiedAt = new Date();
+
+  // Optionally mark producerVerified at product level
+  product.producerVerified = true;
+
+  await product.save();
+
+  res.status(200).json({
+    success: true,
+    message: 'Certificate verified',
+    data: cert
+  });
+});
+
 module.exports = {
   getProducts,
   getProduct,
@@ -364,4 +475,6 @@ module.exports = {
   getOCOPProducts,
   searchProducts,
   getProductStats
+  ,addCertificate,
+  verifyCertificate
 };

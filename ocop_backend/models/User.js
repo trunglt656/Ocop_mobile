@@ -34,9 +34,24 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['user', 'admin'],
+    enum: ['user', 'admin', 'moderator', 'shop_owner', 'shop_admin', 'shop_staff'],
     default: 'user'
   },
+  // Optional shop affiliation for shop-level roles
+  shop: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Shop'
+  },
+  // Shop role within the shop (owner, admin, staff)
+  shopRole: {
+    type: String,
+    enum: ['owner', 'admin', 'staff', null],
+    default: null
+  },
+  // Custom permissions array for fine-grained control
+  permissions: [{
+    type: String
+  }],
   isActive: {
     type: Boolean,
     default: true

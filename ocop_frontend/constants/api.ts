@@ -1,13 +1,83 @@
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+
 /**
- * API Configuration
- * Base URL and common API settings for the OCOP e-commerce app
+ * Resolve API base URL dynamically so the app works across devices
+ * without hard-coding local IP addresses.
  */
+const sanitizeUrl = (url: string) => url.replace(/\/+$/, '');
+
+const getEnvApiUrl = () => {
+  const envUrl =
+    process.env.EXPO_PUBLIC_API_URL ||
+    (Constants.expoConfig?.extra as Record<string, any> | undefined)?.apiUrl;
+
+  if (!envUrl) {
+    return undefined;
+  }
+
+  return sanitizeUrl(envUrl);
+};
+
+const getDebuggerHost = () => {
+  const expoConfig = Constants.expoConfig as Record<string, any> | undefined;
+  const debuggerHost =
+    expoConfig?.hostUri ||
+    expoConfig?.extra?.expoGo?.debuggerHost ||
+    (Constants as unknown as { debuggerHost?: string }).debuggerHost;
+
+  if (!debuggerHost) {
+    return undefined;
+  }
+
+  return debuggerHost.split(':')[0];
+};
+
+// =================================================================
+// BẮT ĐẦU PHẦN ĐÃ SỬA
+// =================================================================
+const getLocalApiUrl = () => {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const { protocol, hostname } = window.location;
+    return `${protocol}//${hostname}:5000/api`;
+  }
+
+  // 1. Ưu tiên host của debugger (hoạt động khi chạy bằng Expo Go)
+  const host = getDebuggerHost();
+  if (host) {
+    return `http://${host}:5000/api`;
+  }
+
+  // 2. Dùng địa chỉ IP local (cho development)
+  return 'http://192.168.1.25:5000/api';
+};
+// =================================================================
+// KẾT THÚC PHẦN ĐÃ SỬA
+// =================================================================
+
+// PRODUCTION API URL - URL ngrok để APK chạy trên mọi thiết bị
+// Thay đổi URL này sau khi chạy ngrok (ví dụ: https://1234-abc-def.ngrok-free.app/api)
+// Hoặc để IP local nếu test trong cùng mạng WiFi: http://192.168.1.25:5000/api
+const PRODUCTION_API_URL = 'http://192.168.1.25:5000/api';
+
+// Ưu tiên: EXPO_PUBLIC_API_URL > PRODUCTION_API_URL > getLocalApiUrl()
+const envUrl = getEnvApiUrl();
+const BASE_URL = envUrl || PRODUCTION_API_URL;
+
+// Debug: Log URL đang sử dụng (chỉ hiện trong development)
+if (__DEV__) {
+  console.log('🔗 API Config:', {
+    envUrl,
+    PRODUCTION_API_URL,
+    BASE_URL,
+    platform: Platform.OS,
+    debuggerHost: getDebuggerHost(),
+  });
+}
 
 export const API_CONFIG = {
-  // Backend API base URL - change this to your deployed backend URL
-  BASE_URL: __DEV__
-    ? 'http://192.168.1.11:5000/api' // <-- IMPORTANT: Change this to your computer's IP address on the local network, e.g., 'http://192.168.1.10:5000/api'
-    : 'https://your-backend-domain.com/api',
+  // Backend API base URL - can be overridden with EXPO_PUBLIC_API_URL
+  BASE_URL,
 
   // API endpoints
   ENDPOINTS: {
@@ -88,6 +158,23 @@ export const API_CONFIG = {
       UPDATE: '/users',
       DELETE: '/users',
       STATS: '/users/stats',
+    },
+
+    // Shops
+    SHOPS: {
+      LIST: '/shops',
+      DETAIL: '/shops',
+      REGISTER: '/shops/register',
+      DASHBOARD: '/shops',
+      STAFF: '/shops',
+      DOCUMENTS: '/shops',
+    },
+
+    // Upload
+    UPLOAD: {
+      IMAGE: '/upload/image',
+      IMAGES: '/upload/images',
+      DELETE: '/upload',
     },
 
     // Health check

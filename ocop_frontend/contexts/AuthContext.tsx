@@ -22,6 +22,7 @@ interface AuthContextType extends AuthState {
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: any) => Promise<void>;
+  updateUser: (user: User) => void;
   changePassword: (data: any) => Promise<void>;
   refreshUser: () => Promise<void>;
   clearError: () => void;
@@ -139,19 +140,38 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const initializeAuth = async () => {
       try {
+        dispatch({ type: 'SET_LOADING', payload: true });
         const { token, refreshToken, user } = await loadTokens();
+        
         if (token && user) {
-          dispatch({
-            type: 'AUTH_SUCCESS',
-            payload: {
-              user,
-              token,
-              refreshToken: refreshToken || '',
-            },
-          });
+          // Validate the token by trying to fetch current user
+          try {
+            const response = await authService.getCurrentUser();
+            if (response.data) {
+              // Token is valid, use the fresh user data from server
+              await AsyncStorage.setItem(USER_KEY, JSON.stringify(response.data));
+              dispatch({
+                type: 'AUTH_SUCCESS',
+                payload: {
+                  user: response.data,
+                  token,
+                  refreshToken: refreshToken || '',
+                },
+              });
+            }
+          } catch (error) {
+            // Token is invalid or expired, clear storage
+            console.log('Stored token is invalid, clearing auth data');
+            await clearTokens();
+            dispatch({ type: 'AUTH_LOGOUT' });
+          }
+        } else {
+          dispatch({ type: 'SET_LOADING', payload: false });
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
+        await clearTokens();
+        dispatch({ type: 'AUTH_LOGOUT' });
       }
     };
 
@@ -162,6 +182,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (data: LoginRequest) => {
     try {
       dispatch({ type: 'AUTH_START' });
+
+      // Clear any existing tokens before login
+      await clearTokens();
 
       const response = await authService.login(data);
 
@@ -219,11 +242,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Logout function
   const logout = async () => {
     try {
-      await authService.logout();
+      // Only call logout API if user is authenticated with a valid token
+      if (state.token && state.isAuthenticated) {
+        await authService.logout();
+      }
     } catch (error) {
-      console.error('Logout API error:', error);
+      // Silently handle logout errors - user can still log out locally
+      // Don't log to console to avoid confusion
     } finally {
-      // Clear tokens from AsyncStorage
+      // Always clear tokens from AsyncStorage regardless of API call result
       await clearTokens();
       dispatch({ type: 'AUTH_LOGOUT' });
     }
@@ -255,6 +282,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         payload: error.message || 'Profile update failed',
       });
       throw error;
+    }
+  };
+
+  // Update user function (for direct state update)
+  const updateUser = async (user: User) => {
+    try {
+      // Save updated user data to AsyncStorage
+      await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
+
+      dispatch({
+        type: 'AUTH_SUCCESS',
+        payload: {
+          user,
+          token: state.token,
+          refreshToken: state.refreshToken,
+        },
+      });
+    } catch (error) {
+      console.error('Error updating user:', error);
     }
   };
 
@@ -310,6 +356,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     register,
     logout,
     updateProfile,
+    updateUser,
     changePassword,
     refreshUser,
     clearError,

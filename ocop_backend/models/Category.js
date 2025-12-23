@@ -6,7 +6,7 @@ const categorySchema = new mongoose.Schema({
     required: [true, 'Please add a category name'],
     trim: true,
     unique: true,
-    maxlength: [50, 'Name cannot be more than 50 characters']
+    maxlength: [100, 'Name cannot be more than 100 characters']
   },
   description: {
     type: String,

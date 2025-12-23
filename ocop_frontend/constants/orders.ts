@@ -63,3 +63,24 @@ export const getOrderErrorMessage = (error: unknown) => {
   }
   return 'Không tải được đơn hàng. Vui lòng thử lại sau.';
 };
+
+export const getFullAddress = (shippingAddress: Order['shippingAddress'] | null | undefined): string => {
+  if (!shippingAddress) {
+    return 'Chưa có địa chỉ giao hàng';
+  }
+
+  // If fullAddress already exists, use it
+  if ('fullAddress' in shippingAddress && shippingAddress.fullAddress) {
+    return shippingAddress.fullAddress;
+  }
+
+  // Otherwise, construct it from individual fields
+  const parts = [
+    shippingAddress.address,
+    shippingAddress.ward,
+    shippingAddress.district,
+    shippingAddress.province,
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(', ') : 'Chưa có địa chỉ giao hàng';
+};

@@ -13,6 +13,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { orderService, Order } from '@/services/orderService';
+import { getImageUrl } from '@/utils/imageHelper';
 import {
   FALLBACK_PRODUCT,
   formatCurrency,
@@ -54,13 +55,9 @@ export default function OrderDetailScreen() {
 
       try {
         setIsLoading(true);
-        const response = await orderService.getOrder(orderId);
-        if (response.data) {
-          setOrder(response.data);
-          setError(null);
-        } else {
-          setError(response.message || 'Không tìm thấy thông tin đơn hàng.');
-        }
+        const order = await orderService.getOrder(orderId);
+        setOrder(order);
+        setError(null);
       } catch (err) {
         setError(getOrderErrorMessage(err));
       } finally {
@@ -143,7 +140,7 @@ export default function OrderDetailScreen() {
               {order.items.map(item => (
                 <View key={item._id} style={styles.productRow}>
                   <Image
-                    source={{ uri: item.image || FALLBACK_PRODUCT }}
+                    source={{ uri: getImageUrl(item.image) || FALLBACK_PRODUCT }}
                     style={styles.productImage}
                     contentFit="cover"
                   />

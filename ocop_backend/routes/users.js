@@ -5,7 +5,9 @@ const {
   getUser,
   updateUser,
   deleteUser,
-  getUserStats
+  getUserStats,
+  toggleUserStatus,
+  changeUserRole
 } = require('../controllers/userController');
 const { protect, authorize } = require('../middleware/auth');
 const { handleValidationErrors } = require('../middleware/error');
@@ -28,6 +30,8 @@ router.get('/', getUsers);
 router.get('/stats', getUserStats);
 router.get('/:id', userIdValidation, handleValidationErrors, getUser);
 router.put('/:id', userIdValidation, handleValidationErrors, updateUser);
+router.patch('/:id/toggle-status', userIdValidation, handleValidationErrors, toggleUserStatus);
+router.patch('/:id/change-role', userIdValidation, handleValidationErrors, changeUserRole);
 router.delete('/:id', userIdValidation, handleValidationErrors, deleteUser);
 
 module.exports = router;

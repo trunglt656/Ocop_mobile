@@ -19,7 +19,7 @@ export interface User {
   name: string;
   email: string;
   phone: string;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'moderator' | 'shop_owner' | 'shop_admin' | 'shop_staff';
   isActive: boolean;
   avatar?: string;
   emailVerified: boolean;

@@ -54,3 +54,24 @@ module.exports = {
   uploadSingle,
   uploadImages
 };
+
+// Certificate upload (allow images + pdf)
+const certFileFilter = (req, file, cb) => {
+  const allowedTypes = /jpeg|jpg|png|gif|webp|pdf/;
+  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+  const mimetype = allowedTypes.test(file.mimetype);
+
+  if (mimetype && extname) {
+    return cb(null, true);
+  } else {
+    cb(new AppError('Only image or PDF files are allowed for certificates!', 400), false);
+  }
+};
+
+const uploadCertificate = multer({
+  storage: storage,
+  limits: { fileSize: parseInt(process.env.MAX_FILE_SIZE) || 5000000 },
+  fileFilter: certFileFilter
+}).single('certificate');
+
+module.exports.uploadCertificate = uploadCertificate;

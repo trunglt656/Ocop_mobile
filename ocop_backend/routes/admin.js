@@ -1,7 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const { adminLogin, getMe, getDashboardStats } = require('../controllers/adminController');
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 const { handleValidationErrors } = require('../middleware/error');
 
 const router = express.Router();
@@ -25,11 +25,11 @@ router.post('/login', adminLoginValidation, handleValidationErrors, adminLogin);
 // @route   GET /api/admin/me
 // @desc    Get current admin user
 // @access  Private (Admin only)
-router.get('/me', protect, getMe);
+router.get('/me', protect, authorize('admin', 'shop_owner', 'shop_admin'), getMe);
 
 // @route   GET /api/admin/dashboard/stats
 // @desc    Get admin dashboard statistics
 // @access  Private (Admin only)
-router.get('/dashboard/stats', protect, getDashboardStats);
+router.get('/dashboard/stats', protect, authorize('admin', 'shop_owner', 'shop_admin'), getDashboardStats);
 
 module.exports = router;

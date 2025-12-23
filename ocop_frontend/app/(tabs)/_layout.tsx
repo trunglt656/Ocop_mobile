@@ -3,6 +3,7 @@ import React from 'react';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { AssetIcon } from '@/components/ui/asset-icon';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -19,28 +20,35 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Tin tuc',
+          title: 'Trang chủ',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="categories"
         options={{
-          title: 'Danh muc',
+          title: 'Danh mục',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="square.grid.2x2.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="explore"
+        options={{
+          title: 'Tin tức',
+          tabBarIcon: ({ color }) => <AssetIcon size={28} name="news" color={color} />,
         }}
       />
       <Tabs.Screen
         name="cart"
         options={{
-          title: 'Gio hang',
+          title: 'Giỏ hàng',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="bag.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Ca nhan',
+          title: 'Cá nhân',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
         }}
       />

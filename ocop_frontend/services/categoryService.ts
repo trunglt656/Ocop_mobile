@@ -47,8 +47,8 @@ class CategoryService {
   async getCategories(params?: {
     parentOnly?: boolean;
     includeProducts?: boolean;
-  }): Promise<ApiResponse<Category[]>> {
-    return apiClient.get<ApiResponse<Category[]>>(API_CONFIG.ENDPOINTS.CATEGORIES.LIST, params);
+  }): Promise<{ data: Category[] }> {
+    return apiClient.get<{ data: Category[] }>(API_CONFIG.ENDPOINTS.CATEGORIES.LIST, params);
   }
 
   // Get category tree
