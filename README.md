@@ -78,8 +78,7 @@ npm start
 ## API Integration
 
 ### Tự động fallback
-- Nếu backend không khả dụng → Hiển thị mock data
-- Mock data bao gồm 10 sản phẩm với hình ảnh thực tế
+- Nếu backend không khả dụng
 - Categories với icons emoji
 - Full product information (giá, mô tả, đánh giá, etc.)
 
