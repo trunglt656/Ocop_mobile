@@ -207,7 +207,6 @@ npm test             # Chạy tests
 ```bash
 npm start            # Khởi động Expo
 npm run android      # Chạy trên Android
-npm run ios          # Chạy trên iOS
 npm run web          # Chạy trên web
 ```
 
